@@ -1,0 +1,499 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── ENUMS ─────────────────────────────────────────────────────────────────────
+
+enum Role {
+  STUDENT
+  LECTURER
+  ADMIN
+}
+
+enum AssignmentType {
+  PROGRAMMING
+  MULTIPLE_CHOICE
+  SHORT_ANSWER
+  FILE_UPLOAD
+}
+
+enum SubmissionStatus {
+  DRAFT
+  SUBMITTED
+  GRADING
+  GRADED
+  LATE_SUBMITTED
+  LATE_GRADED
+}
+
+enum NotificationType {
+  ASSIGNMENT_PUBLISHED
+  DEADLINE_APPROACHING
+  GRADED
+  ANNOUNCEMENT
+  ENROLLMENT
+}
+
+enum ProgrammingLanguage {
+  PYTHON
+  // Add more here: JAVASCRIPT, JAVA, C
+}
+
+enum GradingMethod {
+  AUTOMATIC   // MCQ + Programming (test cases)
+  AI_ASSISTED // Short answer (AI suggests, lecturer approves)
+  MANUAL      // File upload (lecturer grades manually)
+}
+
+// ── USER ──────────────────────────────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String?  // null for OAuth users
+  image     String?
+  role      Role     @default(STUDENT)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  accounts       Account[]
+  sessions       Session[]
+  taughtCourses  Course[]         @relation("LecturerCourses")
+  enrollments    Enrollment[]
+  submissions    Submission[]
+  notifications  Notification[]
+  gradingHistory GradingHistory[]
+  announcements  Announcement[]
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+// ── NEXTAUTH ADAPTER TABLES ───────────────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ── COURSE ────────────────────────────────────────────────────────────────────
+
+model Course {
+  id          String   @id @default(cuid())
+  code        String   @unique // e.g. CS301
+  title       String
+  description String?  @db.Text
+  semester    String   // e.g. "2024/2025 Sem 1"
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lecturerId    String
+  lecturer      User           @relation("LecturerCourses", fields: [lecturerId], references: [id])
+  enrollments   Enrollment[]
+  assignments   Assignment[]
+  announcements Announcement[]
+
+  @@index([lecturerId])
+  @@index([code])
+  @@map("courses")
+}
+
+model Enrollment {
+  id         String   @id @default(cuid())
+  enrolledAt DateTime @default(now())
+
+  studentId String
+  courseId  String
+  student   User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  course    Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, courseId])
+  @@index([courseId])
+  @@map("enrollments")
+}
+
+// ── ANNOUNCEMENT ──────────────────────────────────────────────────────────────
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  courseId String
+  authorId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  author   User   @relation(fields: [authorId], references: [id])
+
+  @@index([courseId])
+  @@map("announcements")
+}
+
+// ── ASSIGNMENT ────────────────────────────────────────────────────────────────
+
+model Assignment {
+  id              String         @id @default(cuid())
+  title           String
+  description     String         @db.Text
+  type            AssignmentType
+  gradingMethod   GradingMethod
+  totalMarks      Int
+  passingMarks    Int?
+  dueDate         DateTime
+  isPublished     Boolean        @default(false)
+  publishedAt     DateTime?
+  allowLateSubmit Boolean        @default(false)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  courseId           String
+  course             Course                @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  submissions        Submission[]
+  notifications      Notification[]
+  programmingDetails ProgrammingAssignment?
+  quizDetails        QuizAssignment?
+  shortAnswerDetails ShortAnswerAssignment?
+  fileUploadDetails  FileUploadAssignment?
+
+  @@index([courseId])
+  @@index([type])
+  @@index([dueDate])
+  @@map("assignments")
+}
+
+// ── PROGRAMMING ASSIGNMENT ────────────────────────────────────────────────────
+
+model ProgrammingAssignment {
+  id          String              @id @default(cuid())
+  language    ProgrammingLanguage @default(PYTHON)
+  starterCode String?             @db.Text
+  timeLimit   Int                 @default(5)   // seconds
+  memoryLimit Int                 @default(128) // MB
+  rubric      String?             @db.Text
+
+  assignmentId String     @unique
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  testCases    TestCase[]
+
+  @@map("programming_assignments")
+}
+
+model TestCase {
+  id             String  @id @default(cuid())
+  title          String?
+  input          String  @db.Text
+  expectedOutput String  @db.Text
+  isHidden       Boolean @default(false) // hidden = not shown to student
+  points         Int     @default(1)
+  order          Int     @default(0)
+
+  programmingAssignmentId String
+  programmingAssignment   ProgrammingAssignment @relation(fields: [programmingAssignmentId], references: [id], onDelete: Cascade)
+  testResults             TestResult[]
+
+  @@index([programmingAssignmentId])
+  @@map("test_cases")
+}
+
+// ── QUIZ ASSIGNMENT ───────────────────────────────────────────────────────────
+
+model QuizAssignment {
+  id               String  @id @default(cuid())
+  shuffleQuestions Boolean @default(false)
+  shuffleOptions   Boolean @default(false)
+  timeLimit        Int?    // minutes, null = no limit
+
+  assignmentId String         @unique
+  assignment   Assignment     @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  questions    QuizQuestion[]
+
+  @@map("quiz_assignments")
+}
+
+model QuizQuestion {
+  id         String  @id @default(cuid())
+  text       String  @db.Text
+  points     Int     @default(1)
+  order      Int     @default(0)
+  isMultiple Boolean @default(false) // true = select many
+
+  quizId  String
+  quiz    QuizAssignment @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  options QuizOption[]
+  answers QuizAnswer[]
+
+  @@index([quizId])
+  @@map("quiz_questions")
+}
+
+model QuizOption {
+  id        String  @id @default(cuid())
+  text      String
+  isCorrect Boolean @default(false)
+  order     Int     @default(0)
+
+  questionId String
+  question   QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answers    QuizAnswer[]
+
+  @@index([questionId])
+  @@map("quiz_options")
+}
+
+// ── SHORT ANSWER ASSIGNMENT ───────────────────────────────────────────────────
+
+model ShortAnswerAssignment {
+  id           String  @id @default(cuid())
+  rubric       String  @db.Text  // Used by AI and lecturer for grading
+  sampleAnswer String? @db.Text
+  wordLimit    Int?
+
+  assignmentId String     @unique
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@map("short_answer_assignments")
+}
+
+// ── FILE UPLOAD ASSIGNMENT ────────────────────────────────────────────────────
+
+model FileUploadAssignment {
+  id               String   @id @default(cuid())
+  allowedFileTypes String[] // e.g. ["pdf", "docx", "zip"]
+  maxFileSizeMB    Int      @default(10)
+  rubric           String?  @db.Text
+
+  assignmentId String     @unique
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@map("file_upload_assignments")
+}
+
+// ── SUBMISSION ────────────────────────────────────────────────────────────────
+
+model Submission {
+  id            String           @id @default(cuid())
+  status        SubmissionStatus @default(DRAFT)
+  submittedAt   DateTime?
+  isLate        Boolean          @default(false)
+  attemptNumber Int              @default(1)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  studentId    String
+  assignmentId String
+  student      User       @relation(fields: [studentId], references: [id])
+  assignment   Assignment @relation(fields: [assignmentId], references: [id])
+
+  codeSubmission        CodeSubmission?
+  quizSubmission        QuizSubmission?
+  shortAnswerSubmission ShortAnswerSubmission?
+  fileSubmission        FileSubmission?
+
+  grade          Grade?
+  gradingHistory GradingHistory[]
+
+  @@unique([studentId, assignmentId])
+  @@index([assignmentId])
+  @@index([studentId])
+  @@index([status])
+  @@map("submissions")
+}
+
+// ── CODE SUBMISSION ───────────────────────────────────────────────────────────
+
+model CodeSubmission {
+  id          String  @id @default(cuid())
+  code        String  @db.Text
+  language    String
+  executionId String? // External Piston run ID
+
+  submissionId String         @unique
+  submission   Submission     @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  testResults  TestResult[]
+
+  @@map("code_submissions")
+}
+
+model TestResult {
+  id             String  @id @default(cuid())
+  passed         Boolean
+  actualOutput   String? @db.Text
+  expectedOutput String  @db.Text
+  executionTime  Float?  // milliseconds
+  memoryUsed     Float?  // kilobytes
+  error          String? @db.Text
+  pointsAwarded  Int     @default(0)
+
+  testCaseId       String
+  codeSubmissionId String
+  testCase         TestCase       @relation(fields: [testCaseId], references: [id])
+  codeSubmission   CodeSubmission @relation(fields: [codeSubmissionId], references: [id], onDelete: Cascade)
+
+  @@unique([testCaseId, codeSubmissionId])
+  @@index([codeSubmissionId])
+  @@map("test_results")
+}
+
+// ── QUIZ SUBMISSION ───────────────────────────────────────────────────────────
+
+model QuizSubmission {
+  id          String   @id @default(cuid())
+  submittedAt DateTime @default(now())
+
+  submissionId String     @unique
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  answers      QuizAnswer[]
+
+  @@map("quiz_submissions")
+}
+
+model QuizAnswer {
+  id String @id @default(cuid())
+
+  quizSubmissionId String
+  questionId       String
+  selectedOptionId String?
+  quizSubmission   QuizSubmission @relation(fields: [quizSubmissionId], references: [id], onDelete: Cascade)
+  question         QuizQuestion   @relation(fields: [questionId], references: [id])
+  selectedOption   QuizOption?    @relation(fields: [selectedOptionId], references: [id])
+
+  @@unique([quizSubmissionId, questionId])
+  @@index([quizSubmissionId])
+  @@map("quiz_answers")
+}
+
+// ── SHORT ANSWER SUBMISSION ───────────────────────────────────────────────────
+
+model ShortAnswerSubmission {
+  id     String @id @default(cuid())
+  answer String @db.Text
+
+  // Populated after AI processing
+  aiSuggestedScore Int?
+  aiStrengths      String[]
+  aiWeaknesses     String[]
+  aiSuggestions    String[]
+  aiProcessedAt    DateTime?
+
+  submissionId String     @unique
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@map("short_answer_submissions")
+}
+
+// ── FILE SUBMISSION ───────────────────────────────────────────────────────────
+
+model FileSubmission {
+  id            String @id @default(cuid())
+  fileName      String // stored filename
+  originalName  String // original filename from user
+  fileUrl       String // Vercel Blob URL
+  fileType      String // mime type
+  fileSizeBytes Int
+
+  submissionId String     @unique
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@map("file_submissions")
+}
+
+// ── GRADE ─────────────────────────────────────────────────────────────────────
+
+model Grade {
+  id         String   @id @default(cuid())
+  score      Float
+  maxScore   Float
+  percentage Float    // score / maxScore * 100
+  feedback   String?  @db.Text
+  isAiGraded Boolean  @default(false)
+  gradedAt   DateTime @default(now())
+  gradedById String?  // null = auto-graded
+
+  submissionId String     @unique
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@map("grades")
+}
+
+// ── GRADING HISTORY ───────────────────────────────────────────────────────────
+
+model GradingHistory {
+  id        String   @id @default(cuid())
+  score     Float
+  feedback  String?  @db.Text
+  action    String   // "created" | "updated" | "ai_graded" | "override"
+  createdAt DateTime @default(now())
+
+  submissionId String
+  gradedById   String
+  submission   Submission @relation(fields: [submissionId], references: [id])
+  gradedBy     User       @relation(fields: [gradedById], references: [id])
+
+  @@index([submissionId])
+  @@map("grading_history")
+}
+
+// ── NOTIFICATION ──────────────────────────────────────────────────────────────
+
+model Notification {
+  id           String           @id @default(cuid())
+  type         NotificationType
+  title        String
+  message      String
+  isRead       Boolean          @default(false)
+  createdAt    DateTime         @default(now())
+  metadata     Json?            // stores assignmentId, courseId etc. for linking
+
+  userId       String
+  assignmentId String?
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignment   Assignment? @relation(fields: [assignmentId], references: [id])
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
