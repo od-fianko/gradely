@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth/auth";
 import { ok, unauthorized, forbidden, badRequest, serverError } from "@/lib/api/response";
 import { handleApiError } from "@/lib/errors/http-error";
+import { extractJson } from "@/lib/ai/extract-json";
 import Anthropic from "@anthropic-ai/sdk";
 import JSZip from "jszip";
 import { XMLParser } from "fast-xml-parser";
@@ -157,7 +158,7 @@ export async function POST(req: Request) {
     });
 
     const raw  = (message.content[0] as { type: string; text: string }).text.trim();
-    const json = JSON.parse(raw);
+    const json = extractJson(raw);
     return ok(json);
   } catch (e) {
     if (e instanceof Error && e.message === "No slides found in .pptx file") {

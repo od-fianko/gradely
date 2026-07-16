@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth/auth";
 import { ok, unauthorized, forbidden, badRequest } from "@/lib/api/response";
 import { handleApiError } from "@/lib/errors/http-error";
+import { extractJson } from "@/lib/ai/extract-json";
 import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic();
@@ -54,7 +55,7 @@ Return ONLY valid JSON in this exact format (no markdown, no extra text):
     });
 
     const raw  = (message.content[0] as { type: string; text: string }).text.trim();
-    const json = JSON.parse(raw);
+    const json = extractJson(raw);
     return ok(json);
   } catch (e) { return handleApiError(e); }
 }

@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth/auth";
 import { ok, unauthorized, forbidden, badRequest } from "@/lib/api/response";
 import { handleApiError } from "@/lib/errors/http-error";
 import { prisma } from "@/lib/db/prisma";
+import { extractJson } from "@/lib/ai/extract-json";
 import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic();
@@ -43,7 +44,7 @@ Return exactly this JSON (no extra text):
     });
 
     const raw  = (message.content[0] as { type: string; text: string }).text;
-    const json = JSON.parse(raw);
+    const json = extractJson<{ suggestedScore?: number; feedback?: string; strengths?: string[]; weaknesses?: string[] }>(raw);
 
     await prisma.shortAnswerSubmission.updateMany({
       where: { submissionId },
