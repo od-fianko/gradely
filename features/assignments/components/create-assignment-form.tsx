@@ -30,16 +30,17 @@ const schema = z.object({
 type Schema = z.infer<typeof schema>;
 
 interface QuizOption   { text: string; isCorrect: boolean }
-interface QuizQuestion { text: string; points: number; options: QuizOption[] }
+type QuestionKind = "MCQ" | "SHORT_TEXT";
+interface QuizQuestion { text: string; points: number; kind: QuestionKind; sampleAnswer: string; options: QuizOption[] }
 interface TestCase     { title: string; input: string; expectedOutput: string; points: number; isHidden: boolean }
 
 const defaultOption   = (): QuizOption   => ({ text: "", isCorrect: false });
-const defaultQuestion = (): QuizQuestion => ({ text: "", points: 1, options: [defaultOption(), defaultOption()] });
+const defaultQuestion = (kind: QuestionKind = "MCQ"): QuizQuestion => ({ text: "", points: kind === "MCQ" ? 1 : 5, kind, sampleAnswer: "", options: kind === "MCQ" ? [defaultOption(), defaultOption()] : [] });
 const defaultTestCase = (): TestCase     => ({ title: "", input: "", expectedOutput: "", points: 1, isHidden: false });
 
 const TYPE_LABELS: Record<string, string> = {
   PROGRAMMING:     "Programming (auto-graded via tests)",
-  MULTIPLE_CHOICE: "Multiple Choice Quiz (auto-graded)",
+  MULTIPLE_CHOICE: "Quiz — MCQ, theory, or a mix",
   SHORT_ANSWER:    "Short Answer (AI-assisted grading)",
   FILE_UPLOAD:     "File Upload (manual grading)",
 };
@@ -77,7 +78,12 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
 
   // ── Quiz helpers ──────────────────────────────────────────────────────────────
 
-  const addQuestion    = () => setQuestions((q) => [...q, defaultQuestion()]);
+  const addQuestion    = (kind: QuestionKind = "MCQ") => setQuestions((q) => [...q, defaultQuestion(kind)]);
+
+  const setQuestionKind = (i: number, kind: QuestionKind) =>
+    setQuestions((q) => q.map((qs, idx) => idx === i
+      ? { ...qs, kind, options: kind === "MCQ" && qs.options.length === 0 ? [defaultOption(), defaultOption()] : qs.options }
+      : qs));
   const removeQuestion = (i: number) => setQuestions((q) => q.filter((_, idx) => idx !== i));
 
   const updateQuestion = (i: number, field: keyof Omit<QuizQuestion, "options">, value: string | number) =>
@@ -105,9 +111,11 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
     setAiQLoading(false);
     if (!res.ok) { setError(json.error ?? "AI generation failed"); return; }
     const generated: QuizQuestion[] = (json.data.questions ?? []).map((q: QuizQuestion) => ({
-      text:    q.text,
-      points:  q.points ?? 1,
-      options: q.options.map((o: QuizOption) => ({ text: o.text, isCorrect: o.isCorrect })),
+      text:         q.text,
+      points:       q.points ?? 1,
+      kind:         q.kind === "SHORT_TEXT" ? "SHORT_TEXT" : "MCQ",
+      sampleAnswer: q.sampleAnswer ?? "",
+      options:      (q.options ?? []).map((o: QuizOption) => ({ text: o.text, isCorrect: o.isCorrect })),
     }));
     if (generated.length) setQuestions(generated);
   };
@@ -153,9 +161,11 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
 
     if (selectedType === "MULTIPLE_CHOICE") {
       const generated: QuizQuestion[] = (json.data.questions ?? []).map((q: QuizQuestion) => ({
-        text:    q.text,
-        points:  q.points ?? 1,
-        options: q.options.map((o: QuizOption) => ({ text: o.text, isCorrect: o.isCorrect })),
+        text:         q.text,
+        points:       q.points ?? 1,
+        kind:         q.kind === "SHORT_TEXT" ? "SHORT_TEXT" : "MCQ",
+        sampleAnswer: q.sampleAnswer ?? "",
+        options:      (q.options ?? []).map((o: QuizOption) => ({ text: o.text, isCorrect: o.isCorrect })),
       }));
       if (generated.length) setQuestions(generated);
     } else if (selectedType === "SHORT_ANSWER") {
@@ -191,10 +201,12 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
 
     if (data.type === "MULTIPLE_CHOICE") {
       for (const q of questions) {
-        if (!q.text.trim())                          { setError("All quiz questions must have text"); return; }
-        if (q.options.length < 2)                    { setError("Each question needs at least 2 options"); return; }
-        if (!q.options.some((o) => o.isCorrect))     { setError("Each question must have at least one correct answer"); return; }
-        if (q.options.some((o) => !o.text.trim()))   { setError("All option texts must be filled in"); return; }
+        if (!q.text.trim()) { setError("All questions must have text"); return; }
+        if (q.kind === "MCQ") {
+          if (q.options.length < 2)                  { setError("Each MCQ needs at least 2 options"); return; }
+          if (!q.options.some((o) => o.isCorrect))   { setError("Each MCQ must have at least one correct answer"); return; }
+          if (q.options.some((o) => !o.text.trim())) { setError("All option texts must be filled in"); return; }
+        }
       }
     }
 
@@ -215,10 +227,12 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
       ...(data.type === "MULTIPLE_CHOICE" && {
         quizDetails: {
           questions: questions.map((q) => ({
-            text:       q.text.trim(),
-            points:     Number(q.points),
-            isMultiple: q.options.filter((o) => o.isCorrect).length > 1,
-            options:    q.options.map((o) => ({ text: o.text.trim(), isCorrect: o.isCorrect })),
+            text:         q.text.trim(),
+            points:       Number(q.points),
+            kind:         q.kind,
+            sampleAnswer: q.sampleAnswer.trim() || null,
+            isMultiple:   q.kind === "MCQ" && q.options.filter((o) => o.isCorrect).length > 1,
+            options:      q.kind === "MCQ" ? q.options.map((o) => ({ text: o.text.trim(), isCorrect: o.isCorrect })) : [],
           })),
         },
       }),
@@ -392,11 +406,17 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
           <Card className="border-blue-100">
             <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
               <CardTitle className="text-base flex items-center gap-2">
-                <CheckSquare className="h-4 w-4 text-blue-500" /> Quiz Questions
+                <CheckSquare className="h-4 w-4 text-blue-500" /> Questions
+                <span className="text-xs font-normal text-muted-foreground">MCQ, theory, or a mix</span>
               </CardTitle>
-              <Button type="button" variant="outline" size="sm" onClick={addQuestion} className="gap-1.5 h-8 text-xs">
-                <Plus className="h-3 w-3" /> Add Question
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => addQuestion("MCQ")} className="gap-1.5 h-8 text-xs">
+                  <Plus className="h-3 w-3" /> MCQ
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => addQuestion("SHORT_TEXT")} className="gap-1.5 h-8 text-xs">
+                  <Plus className="h-3 w-3" /> Theory
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-5">
 
@@ -429,8 +449,23 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
               </div>
               {questions.map((q, qi) => (
                 <div key={qi} className="border rounded-xl p-4 space-y-3 bg-slate-50/50">
-                  <div className="flex items-center justify-between gap-2">
-                    <Badge variant="outline" className="text-blue-600 border-blue-200">Q{qi + 1}</Badge>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-blue-600 border-blue-200">Q{qi + 1}</Badge>
+                      {/* Kind toggle */}
+                      <div className="inline-flex rounded-md border overflow-hidden text-xs">
+                        <button type="button"
+                          onClick={() => setQuestionKind(qi, "MCQ")}
+                          className={`px-2.5 py-1 transition-colors ${q.kind === "MCQ" ? "bg-primary text-white" : "bg-white text-slate-500 hover:bg-slate-50"}`}>
+                          MCQ
+                        </button>
+                        <button type="button"
+                          onClick={() => setQuestionKind(qi, "SHORT_TEXT")}
+                          className={`px-2.5 py-1 transition-colors border-l ${q.kind === "SHORT_TEXT" ? "bg-primary text-white" : "bg-white text-slate-500 hover:bg-slate-50"}`}>
+                          Theory
+                        </button>
+                      </div>
+                    </div>
                     {questions.length > 1 && (
                       <button type="button" onClick={() => removeQuestion(qi)}
                         className="text-red-400 hover:text-red-600 transition-colors">
@@ -452,30 +487,43 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-slate-500">Options <span className="text-muted-foreground font-normal">(tick the correct one(s))</span></p>
-                    {q.options.map((opt, oi) => (
-                      <div key={oi} className="flex items-center gap-2">
-                        <input type="checkbox" checked={opt.isCorrect}
-                          onChange={(e) => updateOption(qi, oi, "isCorrect", e.target.checked)}
-                          className="h-4 w-4 rounded border-slate-300 accent-blue-600" />
-                        <Input
-                          placeholder={`Option ${oi + 1}`}
-                          value={opt.text}
-                          onChange={(e) => updateOption(qi, oi, "text", e.target.value)}
-                          className={opt.isCorrect ? "border-emerald-300 bg-emerald-50" : ""} />
-                        {q.options.length > 2 && (
-                          <button type="button" onClick={() => removeOption(qi, oi)}
-                            className="text-red-400 hover:text-red-600 shrink-0">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                    <Button type="button" variant="ghost" size="sm" className="text-xs gap-1" onClick={() => addOption(qi)}>
-                      <Plus className="h-3 w-3" /> Add option
-                    </Button>
-                  </div>
+                  {q.kind === "MCQ" ? (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-slate-500">Options <span className="text-muted-foreground font-normal">(tick the correct one(s))</span></p>
+                      {q.options.map((opt, oi) => (
+                        <div key={oi} className="flex items-center gap-2">
+                          <input type="checkbox" checked={opt.isCorrect}
+                            onChange={(e) => updateOption(qi, oi, "isCorrect", e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-300 accent-blue-600" />
+                          <Input
+                            placeholder={`Option ${oi + 1}`}
+                            value={opt.text}
+                            onChange={(e) => updateOption(qi, oi, "text", e.target.value)}
+                            className={opt.isCorrect ? "border-emerald-300 bg-emerald-50" : ""} />
+                          {q.options.length > 2 && (
+                            <button type="button" onClick={() => removeOption(qi, oi)}
+                              className="text-red-400 hover:text-red-600 shrink-0">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <Button type="button" variant="ghost" size="sm" className="text-xs gap-1" onClick={() => addOption(qi)}>
+                        <Plus className="h-3 w-3" /> Add option
+                      </Button>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="text-xs font-medium text-slate-600">
+                        Model answer <span className="text-muted-foreground font-normal">(optional — guides AI-assisted grading)</span>
+                      </label>
+                      <Textarea className="mt-1 text-sm" rows={3}
+                        placeholder="What should a full-marks answer cover?"
+                        value={q.sampleAnswer}
+                        onChange={(e) => updateQuestion(qi, "sampleAnswer", e.target.value)} />
+                      <p className="text-xs text-muted-foreground mt-1">Students answer this in their own words. You grade it (with AI help) after submission.</p>
+                    </div>
+                  )}
                 </div>
               ))}
             </CardContent>

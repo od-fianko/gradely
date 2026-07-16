@@ -31,12 +31,27 @@ export async function runIntegrityCheck(submissionId: string): Promise<Integrity
       student:               { select: { id: true, name: true } },
       shortAnswerSubmission: { select: { answer: true } },
       codeSubmission:        { select: { code: true, language: true } },
+      quizSubmission: {
+        select: {
+          answers: {
+            select: { textAnswer: true, question: { select: { text: true, kind: true } } },
+          },
+        },
+      },
     },
   });
   if (!submission) return null;
 
+  // Written theory answers inside a mixed quiz are also screenable
+  const quizTheoryText = (submission.quizSubmission?.answers ?? [])
+    .filter((a) => a.question.kind === "SHORT_TEXT" && a.textAnswer?.trim())
+    .map((a) => `Q: ${a.question.text}\nA: ${a.textAnswer}`)
+    .join("\n\n");
+
   const isCode = !!submission.codeSubmission;
-  const work   = submission.shortAnswerSubmission?.answer ?? submission.codeSubmission?.code;
+  const work   = submission.shortAnswerSubmission?.answer
+    ?? submission.codeSubmission?.code
+    ?? (quizTheoryText || null);
   if (!work || work.trim().length < 40) return null;
 
   const message = await client.messages.create({

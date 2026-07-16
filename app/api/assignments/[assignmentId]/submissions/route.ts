@@ -90,17 +90,15 @@ function buildSubmissionUpdateData(
                 deleteMany: {},
                 create: answers
                   .filter(
-                    (answer): answer is { questionId: string; selectedOptionId?: string | null } =>
+                    (answer): answer is { questionId: string; selectedOptionId?: string | null; textAnswer?: string | null } =>
                       typeof answer === "object" &&
                       answer !== null &&
-                      typeof answer.questionId === "string" &&
-                      (!("selectedOptionId" in answer) ||
-                        typeof answer.selectedOptionId === "string" ||
-                        answer.selectedOptionId === null)
+                      typeof answer.questionId === "string"
                   )
                   .map((answer) => ({
                     questionId: answer.questionId,
-                    selectedOptionId: answer.selectedOptionId ?? null,
+                    selectedOptionId: typeof answer.selectedOptionId === "string" ? answer.selectedOptionId : null,
+                    textAnswer: typeof answer.textAnswer === "string" ? answer.textAnswer : null,
                   })),
               },
             },
@@ -108,17 +106,15 @@ function buildSubmissionUpdateData(
               answers: {
                 create: answers
                   .filter(
-                    (answer): answer is { questionId: string; selectedOptionId?: string | null } =>
+                    (answer): answer is { questionId: string; selectedOptionId?: string | null; textAnswer?: string | null } =>
                       typeof answer === "object" &&
                       answer !== null &&
-                      typeof answer.questionId === "string" &&
-                      (!("selectedOptionId" in answer) ||
-                        typeof answer.selectedOptionId === "string" ||
-                        answer.selectedOptionId === null)
+                      typeof answer.questionId === "string"
                   )
                   .map((answer) => ({
                     questionId: answer.questionId,
-                    selectedOptionId: answer.selectedOptionId ?? null,
+                    selectedOptionId: typeof answer.selectedOptionId === "string" ? answer.selectedOptionId : null,
+                    textAnswer: typeof answer.textAnswer === "string" ? answer.textAnswer : null,
                   })),
               },
             },
@@ -195,17 +191,15 @@ function buildSubmissionCreateData(
             answers: {
               create: answers
                 .filter(
-                  (answer): answer is { questionId: string; selectedOptionId?: string | null } =>
+                  (answer): answer is { questionId: string; selectedOptionId?: string | null; textAnswer?: string | null } =>
                     typeof answer === "object" &&
                     answer !== null &&
-                    typeof answer.questionId === "string" &&
-                    (!("selectedOptionId" in answer) ||
-                      typeof answer.selectedOptionId === "string" ||
-                      answer.selectedOptionId === null)
+                    typeof answer.questionId === "string"
                 )
                 .map((answer) => ({
                   questionId: answer.questionId,
-                  selectedOptionId: answer.selectedOptionId ?? null,
+                  selectedOptionId: typeof answer.selectedOptionId === "string" ? answer.selectedOptionId : null,
+                  textAnswer: typeof answer.textAnswer === "string" ? answer.textAnswer : null,
                 })),
             },
           },
@@ -289,8 +283,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ assignm
           },
         });
 
-    // Auto-grade MULTIPLE_CHOICE based on correct answers
-    if (assignment.type === AssignmentType.MULTIPLE_CHOICE && assignment.quizDetails) {
+    // Auto-grade quizzes — only when every question is MCQ. Mixed quizzes
+    // (MCQ + theory) are left ungraded so the lecturer scores the written parts.
+    const hasTheory = assignment.quizDetails?.questions.some((q) => q.kind === "SHORT_TEXT") ?? false;
+    if (assignment.type === AssignmentType.MULTIPLE_CHOICE && assignment.quizDetails && !hasTheory) {
       const answers: { questionId: string; selectedOptionId?: string | null }[] =
         Array.isArray(body.answers) ? body.answers : [];
 
@@ -318,9 +314,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ assignm
       });
     }
 
-    // Academic integrity: screen written and code submissions for AI-generated
-    // or copied work. Failure here must never block the submission itself.
-    if (assignment.type === AssignmentType.SHORT_ANSWER || assignment.type === AssignmentType.PROGRAMMING) {
+    // Academic integrity: screen written work (essays, code, and theory answers
+    // inside mixed quizzes). Failure here must never block the submission itself.
+    if (
+      assignment.type === AssignmentType.SHORT_ANSWER ||
+      assignment.type === AssignmentType.PROGRAMMING ||
+      hasTheory
+    ) {
       await runIntegrityCheck(submission.id).catch(() => null);
     }
 

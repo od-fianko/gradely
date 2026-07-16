@@ -58,22 +58,22 @@ function buildPrompt(kind: AssignmentKind, count: number, totalMarks: number, ti
     : "";
 
   if (kind === "MULTIPLE_CHOICE") {
-    return `Based on the attached lecture slides, generate multiple-choice questions that test understanding of the material.
+    return `Based on the attached lecture slides, generate assessment questions that test understanding of the material. Questions can be "MCQ" (4 options, auto-graded) or "SHORT_TEXT" (theory/written answer, lecturer-graded).
 ${lecturerBrief}
 ${title ? `Assignment title: ${title}` : ""}
-Default if the lecturer didn't specify: ${count} questions, ${marksPerQuestion} points each, varied difficulty.
+Default if the lecturer didn't specify: ${count} questions, all MCQ, ${marksPerQuestion} points each, varied difficulty. If the lecturer asks for theory/written/essay questions or a mix, produce that mix.
 
 Rules:
 - Base every question on content actually present in the slides
-- Each question must have exactly 4 options
-- Exactly one option is correct (unless clearly multi-select)
-- Distractors should be plausible but wrong on reflection
+- MCQ: exactly 4 options; exactly one correct (unless clearly multi-select); plausible distractors
+- SHORT_TEXT: demands explanation, not one-word answers; include a concise model answer in "sampleAnswer"; options must be []
 
 Return ONLY valid JSON (no markdown, no extra text):
 {
   "questions": [
-    { "text": "...", "points": ${marksPerQuestion}, "isMultiple": false,
-      "options": [ { "text": "...", "isCorrect": false }, { "text": "...", "isCorrect": true }, { "text": "...", "isCorrect": false }, { "text": "...", "isCorrect": false } ] }
+    { "kind": "MCQ", "text": "...", "points": ${marksPerQuestion}, "isMultiple": false,
+      "options": [ { "text": "...", "isCorrect": false }, { "text": "...", "isCorrect": true }, { "text": "...", "isCorrect": false }, { "text": "...", "isCorrect": false } ] },
+    { "kind": "SHORT_TEXT", "text": "Explain why...", "points": 5, "isMultiple": false, "options": [], "sampleAnswer": "..." }
   ]
 }`;
   }

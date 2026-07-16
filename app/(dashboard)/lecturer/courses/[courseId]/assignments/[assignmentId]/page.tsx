@@ -43,7 +43,7 @@ export default async function LecturerAssignmentDetailPage({
             include: {
               answers: {
                 include: {
-                  question:       { select: { text: true, points: true } },
+                  question:       { select: { text: true, points: true, kind: true, sampleAnswer: true } },
                   selectedOption: { select: { id: true, text: true, isCorrect: true } },
                 },
               },

@@ -68,9 +68,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ courseI
                   text: q.text,
                   points: q.points ?? 1,
                   isMultiple: q.isMultiple ?? false,
+                  kind: q.kind === "SHORT_TEXT" ? "SHORT_TEXT" : "MCQ",
+                  sampleAnswer: typeof q.sampleAnswer === "string" && q.sampleAnswer.trim() ? q.sampleAnswer : null,
                   order: qi,
                   options: {
-                    create: (q.options ?? []).map((o: any, oi: number) => ({
+                    create: q.kind === "SHORT_TEXT" ? [] : (q.options ?? []).map((o: any, oi: number) => ({
                       text: o.text,
                       isCorrect: o.isCorrect ?? false,
                       order: oi,

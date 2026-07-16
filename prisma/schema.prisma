@@ -51,6 +51,11 @@ enum GradingMethod {
   MANUAL      // File upload (lecturer grades manually)
 }
 
+enum QuestionKind {
+  MCQ        // multiple choice — auto-graded
+  SHORT_TEXT // theory / written answer — lecturer grades (AI-assisted)
+}
+
 // ── USER ──────────────────────────────────────────────────────────────────────
 
 model User {
@@ -256,11 +261,13 @@ model QuizAssignment {
 }
 
 model QuizQuestion {
-  id         String  @id @default(cuid())
-  text       String  @db.Text
-  points     Int     @default(1)
-  order      Int     @default(0)
-  isMultiple Boolean @default(false) // true = select many
+  id           String       @id @default(cuid())
+  text         String       @db.Text
+  points       Int          @default(1)
+  order        Int          @default(0)
+  isMultiple   Boolean      @default(false) // true = select many
+  kind         QuestionKind @default(MCQ)
+  sampleAnswer String?      @db.Text // model answer for SHORT_TEXT (guides AI/lecturer grading)
 
   quizId  String
   quiz    QuizAssignment @relation(fields: [quizId], references: [id], onDelete: Cascade)
@@ -400,7 +407,8 @@ model QuizSubmission {
 }
 
 model QuizAnswer {
-  id String @id @default(cuid())
+  id         String  @id @default(cuid())
+  textAnswer String? @db.Text // written answer for SHORT_TEXT questions
 
   quizSubmissionId String
   questionId       String

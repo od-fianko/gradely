@@ -17,6 +17,7 @@ import {
 
 interface QuizQuestion {
   id: string; text: string; points: number; isMultiple: boolean;
+  kind?: "MCQ" | "SHORT_TEXT";
   options: { id: string; text: string }[];
 }
 
@@ -34,7 +35,7 @@ interface Props {
     grade:  unknown | null;
     shortAnswerSubmission: { answer: string } | null;
     codeSubmission:        { code: string; language: string } | null;
-    quizSubmission:        { answers: { questionId: string; selectedOption: { id: string } | null }[] } | null;
+    quizSubmission:        { answers: { questionId: string; selectedOption: { id: string } | null; textAnswer?: string | null }[] } | null;
     fileSubmission:        { originalName: string; fileUrl: string } | null;
   } | null;
   courseId: string;
@@ -79,6 +80,15 @@ export function SubmissionForm({ assignment, existing, courseId }: Props) {
     return m;
   };
   const [quizAnswers, setQuizAnswers] = useState<Record<string, string[]>>(initAnswers);
+
+  const initTextAnswers = () => {
+    const m: Record<string, string> = {};
+    existing?.quizSubmission?.answers.forEach((a) => {
+      if (a.textAnswer) m[a.questionId] = a.textAnswer;
+    });
+    return m;
+  };
+  const [textAnswers, setTextAnswers] = useState<Record<string, string>>(initTextAnswers);
 
   const toggleOption = (questionId: string, optionId: string, isMultiple: boolean) => {
     setQuizAnswers((prev) => {
@@ -127,9 +137,14 @@ export function SubmissionForm({ assignment, existing, courseId }: Props) {
       body = { code, language };
     } else if (assignment.type === "MULTIPLE_CHOICE") {
       body = {
-        answers: Object.entries(quizAnswers).flatMap(([questionId, optIds]) =>
-          optIds.map((selectedOptionId) => ({ questionId, selectedOptionId }))
-        ),
+        answers: [
+          ...Object.entries(quizAnswers).flatMap(([questionId, optIds]) =>
+            optIds.map((selectedOptionId) => ({ questionId, selectedOptionId }))
+          ),
+          ...Object.entries(textAnswers)
+            .filter(([, text]) => text.trim())
+            .map(([questionId, textAnswer]) => ({ questionId, textAnswer })),
+        ],
       };
     } else if (assignment.type === "FILE_UPLOAD") {
       let fileData = uploadedFile;
@@ -249,18 +264,29 @@ export function SubmissionForm({ assignment, existing, courseId }: Props) {
                   Q{qi + 1}. {q.text}
                   <span className="ml-2 text-xs text-muted-foreground">({q.points} pt{q.points !== 1 ? "s" : ""})</span>
                 </p>
-                <div className="space-y-1.5 pl-1">
-                  {q.options.map((opt) => {
-                    const selected = (quizAnswers[q.id] ?? []).includes(opt.id);
-                    return (
-                      <button key={opt.id} type="button"
-                        onClick={() => toggleOption(q.id, opt.id, q.isMultiple)}
-                        className={`w-full text-left text-sm px-3 py-2 rounded-lg border transition-all ${selected ? "border-blue-500 bg-blue-50 text-blue-700 font-medium" : "border-slate-200 hover:border-blue-300 hover:bg-slate-50 text-slate-700"}`}>
-                        {opt.text}
-                      </button>
-                    );
-                  })}
-                </div>
+                {q.kind === "SHORT_TEXT" ? (
+                  <Textarea
+                    rows={4}
+                    placeholder="Write your answer in your own words…"
+                    className="text-sm"
+                    value={textAnswers[q.id] ?? ""}
+                    onChange={(e) => setTextAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
+                    disabled={loading}
+                  />
+                ) : (
+                  <div className="space-y-1.5 pl-1">
+                    {q.options.map((opt) => {
+                      const selected = (quizAnswers[q.id] ?? []).includes(opt.id);
+                      return (
+                        <button key={opt.id} type="button"
+                          onClick={() => toggleOption(q.id, opt.id, q.isMultiple)}
+                          className={`w-full text-left text-sm px-3 py-2 rounded-lg border transition-all ${selected ? "border-blue-500 bg-blue-50 text-blue-700 font-medium" : "border-slate-200 hover:border-blue-300 hover:bg-slate-50 text-slate-700"}`}>
+                          {opt.text}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             ))}
           </div>

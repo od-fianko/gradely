@@ -12,7 +12,8 @@ import { useRouter } from "next/navigation";
 
 interface QuizAnswerDisplay {
   questionId:      string;
-  question?:       { text: string; points: number };
+  textAnswer?:     string | null;
+  question?:       { text: string; points: number; kind?: string; sampleAnswer?: string | null };
   selectedOption?: { id: string; text: string; isCorrect: boolean } | null;
 }
 
@@ -368,7 +369,18 @@ export function SubmissionsTable({
                               Q{i + 1}. {a.question?.text ?? a.questionId}
                               {a.question && <span className="ml-1 text-muted-foreground">({a.question.points} pt{a.question.points !== 1 ? "s" : ""})</span>}
                             </p>
-                            {a.selectedOption ? (
+                            {a.question?.kind === "SHORT_TEXT" ? (
+                              <div className="mt-1 space-y-1.5">
+                                <p className="text-xs text-slate-700 whitespace-pre-wrap rounded border bg-white p-2">
+                                  {a.textAnswer?.trim() || <span className="text-muted-foreground italic">No answer given</span>}
+                                </p>
+                                {a.question.sampleAnswer && (
+                                  <p className="text-xs text-muted-foreground border-l-2 border-primary/30 pl-2">
+                                    <span className="font-medium">Model answer:</span> {a.question.sampleAnswer}
+                                  </p>
+                                )}
+                              </div>
+                            ) : a.selectedOption ? (
                               <p className={`text-xs mt-0.5 ${a.selectedOption.isCorrect ? "text-emerald-600" : "text-red-600"}`}>
                                 → {a.selectedOption.text} {a.selectedOption.isCorrect ? "✓" : "✗"}
                               </p>
