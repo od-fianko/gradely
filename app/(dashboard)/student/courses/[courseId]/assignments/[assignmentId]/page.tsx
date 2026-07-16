@@ -90,6 +90,20 @@ export default async function StudentAssignmentDetailPage({
         </p>
       </div>
 
+      {existing?.integrityFlagged && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="py-4">
+            <p className="text-sm font-semibold text-red-700">⚠ Academic integrity notice</p>
+            <p className="text-xs text-red-600 mt-1">
+              Your submission was flagged as possibly AI-generated or copied
+              {existing.integrityScore != null ? ` (${existing.integrityScore}% confidence)` : ""}.
+              Your lecturer has been notified. If this is your own work, please discuss it with your lecturer.
+              You can update your submission with your own attempt at any time before the deadline.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {existing?.grade && (
         <GradeCard grade={existing.grade} totalMarks={assignment.totalMarks} />
       )}

@@ -49,9 +49,9 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
   const [error, setError] = useState<string | null>(null);
 
   // Quiz state
-  const [questions,    setQuestions]    = useState<QuizQuestion[]>([defaultQuestion()]);
-  const [aiTopic,      setAiTopic]      = useState("");
-  const [aiQLoading,   setAiQLoading]   = useState(false);
+  const [questions,      setQuestions]      = useState<QuizQuestion[]>([defaultQuestion()]);
+  const [aiInstructions, setAiInstructions] = useState("");
+  const [aiQLoading,     setAiQLoading]     = useState(false);
 
   // Short answer state
   const [rubric,       setRubric]       = useState("");
@@ -94,12 +94,12 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
   // ── AI: generate quiz questions ───────────────────────────────────────────────
 
   const generateQuestions = async () => {
-    if (!aiTopic.trim()) { setError("Enter a topic for the AI to generate questions"); return; }
+    if (!aiInstructions.trim()) { setError("Tell the AI what you want — e.g. \"6 hard questions on AVL rotations and 2 easy ones on BST basics\""); return; }
     setAiQLoading(true); setError(null);
     const res  = await fetch("/api/ai/generate-questions", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ topic: aiTopic, description, count: 4, totalMarks }),
+      body:    JSON.stringify({ instructions: aiInstructions, description, totalMarks }),
     });
     const json = await res.json();
     setAiQLoading(false);
@@ -119,7 +119,7 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
     const res  = await fetch("/api/ai/generate-rubric", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ title, description, totalMarks }),
+      body:    JSON.stringify({ title, description, totalMarks, instructions: aiInstructions }),
     });
     const json = await res.json();
     setAiRLoading(false);
@@ -142,6 +142,7 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
     formData.append("type", selectedType);
     formData.append("title", title);
     formData.append("description", description);
+    formData.append("instructions", aiInstructions);
     formData.append("totalMarks", String(totalMarks));
     formData.append("count", String(selectedType === "PROGRAMMING" ? testCases.length : 4));
 
@@ -342,24 +343,36 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
               <CardTitle className="text-base flex items-center gap-2">
                 <FileText className="h-4 w-4 text-amber-500" /> Grading Rubric
               </CardTitle>
-              <div className="flex items-center gap-2 flex-wrap">
-                <Button type="button" variant="outline" size="sm"
-                  className="gap-1.5 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
-                  onClick={triggerSlidesUpload} disabled={slidesLoading}>
-                  {slidesLoading
-                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Reading slides…</>
-                    : <><Upload className="h-3.5 w-3.5" />Generate from Slides</>}
-                </Button>
-                <Button type="button" variant="outline" size="sm"
-                  className="gap-1.5 text-purple-600 border-purple-200 hover:bg-purple-50"
-                  onClick={generateRubric} disabled={aiRLoading || !title}>
-                  {aiRLoading
-                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Generating…</>
-                    : <><Sparkles className="h-3.5 w-3.5" />AI Generate Rubric</>}
-                </Button>
-              </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+
+              {/* AI Assistant */}
+              <div className="rounded-lg border bg-muted/40 p-4 space-y-3">
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" /> AI Assistant
+                </p>
+                <Textarea
+                  rows={2}
+                  className="bg-white text-sm"
+                  placeholder='Optional guidance — e.g. "Focus the question on time complexity trade-offs, aimed at second-year students."'
+                  value={aiInstructions}
+                  onChange={(e) => setAiInstructions(e.target.value)}
+                />
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button type="button" size="sm" variant="outline"
+                    onClick={generateRubric} disabled={aiRLoading || !title} className="gap-1.5">
+                    {aiRLoading
+                      ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Generating…</>
+                      : <><Sparkles className="h-3.5 w-3.5" />Generate Rubric</>}
+                  </Button>
+                  <Button type="button" size="sm" variant="outline"
+                    onClick={triggerSlidesUpload} disabled={slidesLoading} className="gap-1.5">
+                    {slidesLoading
+                      ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Reading slides…</>
+                      : <><Upload className="h-3.5 w-3.5" />Question + Rubric from Slides</>}
+                  </Button>
+                </div>
+              </div>
               <Textarea
                 rows={5}
                 placeholder="Describe how this assignment should be graded, or use AI to generate a rubric…"
@@ -381,36 +394,39 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
               <CardTitle className="text-base flex items-center gap-2">
                 <CheckSquare className="h-4 w-4 text-blue-500" /> Quiz Questions
               </CardTitle>
-              <div className="flex items-center gap-2 flex-wrap">
-                <Button type="button" size="sm" variant="outline"
-                  className="gap-1.5 text-indigo-600 border-indigo-200 hover:bg-indigo-50 h-8 text-xs"
-                  onClick={triggerSlidesUpload} disabled={slidesLoading}>
-                  {slidesLoading
-                    ? <><Loader2 className="h-3 w-3 animate-spin" />Reading slides…</>
-                    : <><Upload className="h-3 w-3" />Generate from Slides</>}
-                </Button>
-                {/* AI generate block */}
-                <div className="flex items-center gap-1.5">
-                  <Input
-                    placeholder="Topic for AI…"
-                    value={aiTopic}
-                    onChange={(e) => setAiTopic(e.target.value)}
-                    className="h-8 text-xs w-40"
-                  />
-                  <Button type="button" size="sm" variant="outline"
-                    className="gap-1.5 text-purple-600 border-purple-200 hover:bg-purple-50 h-8 text-xs"
-                    onClick={generateQuestions} disabled={aiQLoading}>
-                    {aiQLoading
-                      ? <><Loader2 className="h-3 w-3 animate-spin" />Generating…</>
-                      : <><Sparkles className="h-3 w-3" />AI Generate</>}
-                  </Button>
-                </div>
-                <Button type="button" variant="outline" size="sm" onClick={addQuestion} className="gap-1.5 h-8 text-xs">
-                  <Plus className="h-3 w-3" /> Add Question
-                </Button>
-              </div>
+              <Button type="button" variant="outline" size="sm" onClick={addQuestion} className="gap-1.5 h-8 text-xs">
+                <Plus className="h-3 w-3" /> Add Question
+              </Button>
             </CardHeader>
             <CardContent className="space-y-5">
+
+              {/* AI Assistant */}
+              <div className="rounded-lg border bg-muted/40 p-4 space-y-3">
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" /> AI Assistant
+                </p>
+                <Textarea
+                  rows={3}
+                  className="bg-white text-sm"
+                  placeholder='Describe what you want in your own words — e.g. "Generate 6 questions on binary trees: 2 easy, 3 medium, 1 very hard on AVL rotations. Worth 5 marks each."'
+                  value={aiInstructions}
+                  onChange={(e) => setAiInstructions(e.target.value)}
+                />
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button type="button" size="sm" onClick={generateQuestions} disabled={aiQLoading} className="gap-1.5">
+                    {aiQLoading
+                      ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Generating…</>
+                      : <><Sparkles className="h-3.5 w-3.5" />Generate Questions</>}
+                  </Button>
+                  <Button type="button" size="sm" variant="outline"
+                    onClick={triggerSlidesUpload} disabled={slidesLoading} className="gap-1.5">
+                    {slidesLoading
+                      ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Reading slides…</>
+                      : <><Upload className="h-3.5 w-3.5" />From Slides (PDF/PPTX)</>}
+                  </Button>
+                  <span className="text-xs text-muted-foreground">Your instructions apply to both.</span>
+                </div>
+              </div>
               {questions.map((q, qi) => (
                 <div key={qi} className="border rounded-xl p-4 space-y-3 bg-slate-50/50">
                   <div className="flex items-center justify-between gap-2">
@@ -473,20 +489,31 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
               <CardTitle className="text-base flex items-center gap-2">
                 <Code2 className="h-4 w-4 text-violet-500" /> Programming Setup
               </CardTitle>
-              <div className="flex items-center gap-2 flex-wrap">
-                <Button type="button" variant="outline" size="sm"
-                  className="gap-1.5 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
-                  onClick={triggerSlidesUpload} disabled={slidesLoading}>
-                  {slidesLoading
-                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Reading slides…</>
-                    : <><Upload className="h-3.5 w-3.5" />Generate from Slides</>}
-                </Button>
-                <Button type="button" variant="outline" size="sm" onClick={addTestCase} className="gap-1.5">
-                  <Plus className="h-3.5 w-3.5" /> Add Test
-                </Button>
-              </div>
+              <Button type="button" variant="outline" size="sm" onClick={addTestCase} className="gap-1.5">
+                <Plus className="h-3.5 w-3.5" /> Add Test
+              </Button>
             </CardHeader>
             <CardContent className="space-y-5">
+
+              {/* AI Assistant */}
+              <div className="rounded-lg border bg-muted/40 p-4 space-y-3">
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" /> AI Assistant
+                </p>
+                <Textarea
+                  rows={2}
+                  className="bg-white text-sm"
+                  placeholder='Optional guidance — e.g. "A medium-difficulty exercise on linked lists with 5 test cases, two of them hidden edge cases."'
+                  value={aiInstructions}
+                  onChange={(e) => setAiInstructions(e.target.value)}
+                />
+                <Button type="button" size="sm" variant="outline"
+                  onClick={triggerSlidesUpload} disabled={slidesLoading} className="gap-1.5">
+                  {slidesLoading
+                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Reading slides…</>
+                    : <><Upload className="h-3.5 w-3.5" />Exercise + Tests from Slides</>}
+                </Button>
+              </div>
 
               {/* Starter code */}
               <div>
@@ -559,8 +586,7 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
 
         <div className="flex justify-end gap-3">
           <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
-          <Button type="submit" disabled={isLoading}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md shadow-blue-200">
+          <Button type="submit" disabled={isLoading}>
             {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating…</> : "Create Assignment"}
           </Button>
         </div>

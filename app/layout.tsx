@@ -1,7 +1,14 @@
 import type { Metadata } from "next";
+import { Public_Sans } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
+
+const publicSans = Public_Sans({
+  subsets:  ["latin"],
+  variable: "--font-sans",
+  display:  "swap",
+});
 
 export const metadata: Metadata = {
   title: {
@@ -18,7 +25,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={publicSans.variable}>
       <body className="antialiased">
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
           {children}

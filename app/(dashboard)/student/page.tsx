@@ -56,16 +56,9 @@ export default async function StudentDashboardPage() {
   return (
     <div className="space-y-6 animate-fade-in">
 
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-700 p-6 text-white shadow-lg">
-        <div className="pointer-events-none absolute right-0 top-0 h-full w-64 opacity-10">
-          <svg viewBox="0 0 200 200" className="h-full w-full">
-            <circle cx="150" cy="50" r="80" fill="white" />
-            <circle cx="50" cy="150" r="60" fill="white" />
-          </svg>
-        </div>
-        <p className="text-sm font-medium text-emerald-200">Hello,</p>
-        <h1 className="mt-1 text-2xl font-bold">{session.user.name}</h1>
-        <p className="mt-1 text-sm text-emerald-200">Here is a summary of your coursework, deadlines and grades.</p>
+      <div className="border-b pb-5">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Welcome back, {session.user.name?.split(" ")[0]}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">A summary of your coursework, deadlines and grades.</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -73,7 +66,7 @@ export default async function StudentDashboardPage() {
           const Icon = stat.icon;
           return (
             <Card key={stat.label} style={{ animationDelay: `${i * 80}ms` }}
-              className={`animate-slide-up border-t-4 ${stat.border} hover:shadow-md transition-all duration-200 hover:-translate-y-0.5`}>
+              className="hover:shadow-sm transition-shadow">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">{stat.label}</CardTitle>
                 <div className={`rounded-xl p-2.5 ${stat.light}`}><Icon className="h-4 w-4" /></div>

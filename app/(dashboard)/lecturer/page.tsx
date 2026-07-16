@@ -55,16 +55,9 @@ export default async function LecturerDashboardPage() {
   return (
     <div className="space-y-6 animate-fade-in">
 
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 p-6 text-white shadow-lg">
-        <div className="pointer-events-none absolute right-0 top-0 h-full w-64 opacity-10">
-          <svg viewBox="0 0 200 200" className="h-full w-full">
-            <circle cx="150" cy="50" r="80" fill="white" />
-            <circle cx="50" cy="150" r="60" fill="white" />
-          </svg>
-        </div>
-        <p className="text-sm font-medium text-blue-200">Good day,</p>
-        <h1 className="mt-1 text-2xl font-bold">{session.user.name}</h1>
-        <p className="mt-1 text-sm text-blue-200">Here is an overview of your courses and student activity.</p>
+      <div className="border-b pb-5">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Welcome back, {firstName}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">An overview of your courses and student activity.</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -72,7 +65,7 @@ export default async function LecturerDashboardPage() {
           const Icon = stat.icon;
           return (
             <Card key={stat.label} style={{ animationDelay: `${i * 80}ms` }}
-              className={`animate-slide-up border-t-4 ${stat.border} hover:shadow-md transition-all duration-200 hover:-translate-y-0.5`}>
+              className="hover:shadow-sm transition-shadow">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">{stat.label}</CardTitle>
                 <div className={`rounded-xl p-2.5 ${stat.light}`}><Icon className="h-4 w-4" /></div>

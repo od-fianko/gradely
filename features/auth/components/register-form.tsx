@@ -147,7 +147,7 @@ export function RegisterForm() {
         />
 
         <Button type="submit" disabled={isLoading}
-          className="w-full h-11 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium shadow-md shadow-blue-200">
+          className="w-full h-11 font-medium">
           {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating account…</> : "Create account"}
         </Button>
 

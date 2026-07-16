@@ -37,6 +37,7 @@ enum NotificationType {
   GRADED
   ANNOUNCEMENT
   ENROLLMENT
+  INTEGRITY_FLAG
 }
 
 enum ProgrammingLanguage {
@@ -322,6 +323,13 @@ model Submission {
   attemptNumber Int              @default(1)
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
+
+  // Academic integrity (AI/plagiarism detection)
+  integrityFlagged   Boolean   @default(false)
+  integrityScore     Int?      // 0-100 likelihood the work is AI-generated/copied
+  integrityVerdict   String?   // short label e.g. "Likely AI-generated"
+  integrityReason    String?   @db.Text
+  integrityCheckedAt DateTime?
 
   studentId    String
   assignmentId String

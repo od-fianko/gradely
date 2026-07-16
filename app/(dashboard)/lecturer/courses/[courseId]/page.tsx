@@ -67,7 +67,7 @@ export default async function LecturerCourseDetailPage({
           <p className="text-xs text-muted-foreground mt-1">{course.semester}</p>
         </div>
         <Link href={`/lecturer/courses/${courseId}/assignments/new`}>
-          <Button className="gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md shadow-blue-200">
+          <Button className="gap-2">
             <Plus className="h-4 w-4" /> New Assignment
           </Button>
         </Link>

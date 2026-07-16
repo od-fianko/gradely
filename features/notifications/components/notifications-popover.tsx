@@ -27,6 +27,7 @@ const TYPE_ICON: Record<string, string> = {
   GRADED:              "✅",
   ANNOUNCEMENT:        "📢",
   ENROLLMENT:          "🎓",
+  INTEGRITY_FLAG:      "🚩",
 };
 
 export function NotificationsPopover() {

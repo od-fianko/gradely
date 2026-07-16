@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import { Loader2, CheckCircle2, Clock, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, CheckCircle2, Clock, Sparkles, ChevronDown, ChevronUp, ShieldAlert, ShieldCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,11 @@ interface Submission {
   status:      string;
   submittedAt: Date | null;
   isLate:      boolean;
+  integrityFlagged:   boolean;
+  integrityScore:     number | null;
+  integrityVerdict:   string | null;
+  integrityReason:    string | null;
+  integrityCheckedAt: Date | null;
   student:     { id: string; name: string; email: string };
   grade:       { score: number; maxScore: number; percentage: number; feedback: string | null } | null;
   shortAnswerSubmission: { answer: string } | null;
@@ -81,6 +86,18 @@ export function SubmissionsTable({
   const [codeReview,    setCodeReview]    = useState<Record<string, CodeReview>>({});
   const [reviewLoading, setReviewLoading] = useState<Record<string, boolean>>({});
   const [showReview,    setShowReview]    = useState<Record<string, boolean>>({});
+  const [integrityLoading, setIntegrityLoading] = useState<Record<string, boolean>>({});
+
+  const runIntegrity = async (submissionId: string) => {
+    setIntegrityLoading((s) => ({ ...s, [submissionId]: true }));
+    await fetch("/api/ai/check-integrity", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ submissionId }),
+    });
+    setIntegrityLoading((s) => ({ ...s, [submissionId]: false }));
+    router.refresh();
+  };
 
   const saveGrade = async (submissionId: string) => {
     setSaving((s) => ({ ...s, [submissionId]: true }));
@@ -168,6 +185,16 @@ export function SubmissionsTable({
                         </span>
                       )}
                       {sub.isLate && <Badge variant="destructive" className="text-xs">Late</Badge>}
+                      {sub.integrityFlagged && (
+                        <Badge variant="destructive" className="text-xs gap-1">
+                          <ShieldAlert className="h-3 w-3" /> Integrity {sub.integrityScore != null ? `${sub.integrityScore}%` : ""}
+                        </Badge>
+                      )}
+                      {!sub.integrityFlagged && sub.integrityCheckedAt && (
+                        <Badge variant="outline" className="text-xs gap-1 text-emerald-600 border-emerald-200 bg-emerald-50">
+                          <ShieldCheck className="h-3 w-3" /> Original
+                        </Badge>
+                      )}
                       {testResults.length > 0 && (
                         <Badge variant="outline" className={`text-xs ${passedTests === testResults.length ? "text-emerald-600 border-emerald-200 bg-emerald-50" : "text-amber-600 border-amber-200 bg-amber-50"}`}>
                           {passedTests}/{testResults.length} tests passed
@@ -188,6 +215,35 @@ export function SubmissionsTable({
                 {/* Expanded panel */}
                 {isExpanded && (
                   <div className="mt-4 space-y-4 border-t pt-4">
+
+                    {/* Integrity report */}
+                    {sub.integrityCheckedAt ? (
+                      <div className={`rounded-lg border p-3 ${sub.integrityFlagged ? "bg-red-50 border-red-200" : "bg-emerald-50/50 border-emerald-200"}`}>
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <p className={`text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5 ${sub.integrityFlagged ? "text-red-700" : "text-emerald-700"}`}>
+                            {sub.integrityFlagged ? <ShieldAlert className="h-3.5 w-3.5" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+                            Integrity check — {sub.integrityVerdict ?? (sub.integrityFlagged ? "Flagged" : "No concerns")}
+                            {sub.integrityScore != null && <span className="font-normal normal-case">({sub.integrityScore}% AI-likelihood)</span>}
+                          </p>
+                          <Button type="button" variant="ghost" size="sm" className="h-7 text-xs"
+                            onClick={() => runIntegrity(sub.id)} disabled={integrityLoading[sub.id]}>
+                            {integrityLoading[sub.id] ? <Loader2 className="h-3 w-3 animate-spin" /> : "Re-check"}
+                          </Button>
+                        </div>
+                        {sub.integrityReason && (
+                          <p className={`text-xs mt-1.5 ${sub.integrityFlagged ? "text-red-600" : "text-emerald-700/80"}`}>
+                            {sub.integrityReason}
+                          </p>
+                        )}
+                      </div>
+                    ) : (sub.shortAnswerSubmission || sub.codeSubmission) && (
+                      <Button type="button" variant="outline" size="sm" className="gap-1.5"
+                        onClick={() => runIntegrity(sub.id)} disabled={integrityLoading[sub.id]}>
+                        {integrityLoading[sub.id]
+                          ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Checking…</>
+                          : <><ShieldAlert className="h-3.5 w-3.5" />Run integrity check</>}
+                      </Button>
+                    )}
 
                     {/* Short answer */}
                     {sub.shortAnswerSubmission && (
@@ -366,7 +422,7 @@ export function SubmissionsTable({
                     <div className="flex justify-end">
                       <Button onClick={() => saveGrade(sub.id)}
                         disabled={saving[sub.id] || !scores[sub.id]}
-                        className="gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-sm">
+                        className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white">
                         {saving[sub.id]
                           ? <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />Saving…</>
                           : <><CheckCircle2 className="mr-2 h-3.5 w-3.5" />{hasGrade ? "Update grade" : "Save grade"}</>}

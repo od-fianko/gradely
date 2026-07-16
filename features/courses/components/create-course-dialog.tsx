@@ -52,7 +52,7 @@ export function CreateCourseDialog() {
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { form.reset(); setError(null); } }}>
       <DialogTrigger asChild>
-        <Button className="gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md shadow-blue-200">
+        <Button className="gap-2">
           <Plus className="h-4 w-4" /> New Course
         </Button>
       </DialogTrigger>
@@ -102,8 +102,7 @@ export function CreateCourseDialog() {
 
             <div className="flex justify-end gap-3 pt-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
+              <Button type="submit" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating…</> : "Create course"}
               </Button>
             </div>

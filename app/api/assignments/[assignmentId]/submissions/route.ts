@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth/auth";
 import { ok, unauthorized, forbidden, notFound, badRequest } from "@/lib/api/response";
 import { handleApiError } from "@/lib/errors/http-error";
 import { prisma } from "@/lib/db/prisma";
+import { runIntegrityCheck } from "@/lib/ai/integrity";
 import { AssignmentType, SubmissionStatus } from "@prisma/client";
 
 function getSubmissionBaseData(isLate: boolean, now: Date) {
@@ -315,6 +316,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ assignm
         update: { score, maxScore, percentage, isAiGraded: false },
         create: { submissionId: submission.id, score, maxScore, percentage, isAiGraded: false },
       });
+    }
+
+    // Academic integrity: screen written and code submissions for AI-generated
+    // or copied work. Failure here must never block the submission itself.
+    if (assignment.type === AssignmentType.SHORT_ANSWER || assignment.type === AssignmentType.PROGRAMMING) {
+      await runIntegrityCheck(submission.id).catch(() => null);
     }
 
     return ok(submission, existing ? "Submission updated" : "Submitted", 201);

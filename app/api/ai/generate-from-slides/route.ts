@@ -51,21 +51,23 @@ async function extractPptxText(buffer: Buffer): Promise<string> {
   return slideTexts.join("\n\n");
 }
 
-function buildPrompt(kind: AssignmentKind, count: number, totalMarks: number, title: string, description: string) {
+function buildPrompt(kind: AssignmentKind, count: number, totalMarks: number, title: string, description: string, instructions: string) {
   const marksPerQuestion = totalMarks ? Math.floor(totalMarks / count) || 1 : 1;
+  const lecturerBrief = instructions.trim()
+    ? `\nThe lecturer's specific instructions, in their own words — follow these faithfully (question count, difficulty, focus areas):\n"""\n${instructions.trim()}\n"""\n`
+    : "";
 
   if (kind === "MULTIPLE_CHOICE") {
-    return `Based on the attached lecture slides, generate ${count} multiple-choice questions that test understanding of the material.
-
+    return `Based on the attached lecture slides, generate multiple-choice questions that test understanding of the material.
+${lecturerBrief}
 ${title ? `Assignment title: ${title}` : ""}
-Points per question: ${marksPerQuestion}
+Default if the lecturer didn't specify: ${count} questions, ${marksPerQuestion} points each, varied difficulty.
 
 Rules:
 - Base every question on content actually present in the slides
 - Each question must have exactly 4 options
 - Exactly one option is correct (unless clearly multi-select)
 - Distractors should be plausible but wrong on reflection
-- Vary difficulty
 
 Return ONLY valid JSON (no markdown, no extra text):
 {
@@ -78,7 +80,7 @@ Return ONLY valid JSON (no markdown, no extra text):
 
   if (kind === "SHORT_ANSWER") {
     return `Based on the attached lecture slides, design ONE short-answer / essay assignment question that tests deep understanding of the material, plus a grading rubric.
-
+${lecturerBrief}
 Total marks: ${totalMarks}
 
 Return ONLY valid JSON (no markdown, no extra text):
@@ -91,9 +93,9 @@ Return ONLY valid JSON (no markdown, no extra text):
 
   // PROGRAMMING
   return `Based on the attached lecture slides, design ONE programming exercise that applies a concept taught in the slides, plus starter code and test cases.
-
+${lecturerBrief}
 Total marks: ${totalMarks}
-Number of test cases: ${count}
+Default number of test cases if the lecturer didn't specify: ${count}
 
 Return ONLY valid JSON (no markdown, no extra text):
 {
@@ -118,6 +120,7 @@ export async function POST(req: Request) {
     const kind = form.get("type") as AssignmentKind | null;
     const title = String(form.get("title") ?? "");
     const description = String(form.get("description") ?? "");
+    const instructions = String(form.get("instructions") ?? "");
     const totalMarks = Number(form.get("totalMarks") ?? 100);
     const count = Math.max(1, Number(form.get("count") ?? 4));
 
@@ -128,7 +131,7 @@ export async function POST(req: Request) {
     if (file.size > MAX_MB * 1024 * 1024) return badRequest(`File must be under ${MAX_MB} MB`);
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const prompt = buildPrompt(kind, count, totalMarks, title, description);
+    const prompt = buildPrompt(kind, count, totalMarks, title, description, instructions);
 
     let contentBlocks: Anthropic.MessageParam["content"];
 

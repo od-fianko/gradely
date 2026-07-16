@@ -20,12 +20,12 @@ interface CourseCardProps {
 }
 
 const PALETTE = [
-  "from-blue-500 to-blue-700",
-  "from-emerald-500 to-teal-600",
-  "from-purple-500 to-indigo-600",
-  "from-orange-500 to-amber-600",
-  "from-rose-500 to-pink-600",
-  "from-cyan-500 to-sky-600",
+  "bg-blue-700",
+  "bg-emerald-700",
+  "bg-indigo-700",
+  "bg-amber-700",
+  "bg-rose-700",
+  "bg-cyan-700",
 ];
 
 function colorFor(code: string) {
@@ -41,19 +41,19 @@ export function CourseCard({ course, role }: CourseCardProps) {
 
   return (
     <Link href={href} className="block group">
-      <Card className="overflow-hidden hover:shadow-lg transition-all duration-200 hover:-translate-y-1 border-0 shadow-md">
-        <div className={`h-2 bg-gradient-to-r ${colorFor(course.code)}`} />
+      <Card className="overflow-hidden hover:shadow-md transition-shadow border">
+        <div className={`h-1.5 ${colorFor(course.code)}`} />
 
         <CardHeader className="pb-3 pt-4 px-5">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <span className={`inline-flex items-center gap-1.5 rounded-md bg-gradient-to-r ${colorFor(course.code)} px-2.5 py-0.5 text-xs font-bold text-white shadow-sm`}>
+                <span className={`inline-flex items-center rounded ${colorFor(course.code)} px-2 py-0.5 text-xs font-semibold text-white`}>
                   {course.code}
                 </span>
                 {!course.isActive && <Badge variant="secondary">Inactive</Badge>}
               </div>
-              <h3 className="font-semibold text-slate-800 text-sm leading-snug line-clamp-2 group-hover:text-blue-600 transition-colors">
+              <h3 className="font-semibold text-slate-800 text-sm leading-snug line-clamp-2 group-hover:text-primary transition-colors">
                 {course.title}
               </h3>
             </div>

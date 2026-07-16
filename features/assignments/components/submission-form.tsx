@@ -302,7 +302,7 @@ export function SubmissionForm({ assignment, existing, courseId }: Props) {
         <div className="flex justify-end gap-3 pt-2">
           {uploading && <span className="text-xs text-muted-foreground flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" />Uploading file…</span>}
           <Button onClick={submit} disabled={loading || uploading}
-            className="gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md shadow-blue-200">
+            className="gap-2">
             {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting…</> : (existing ? "Update submission" : "Submit")}
           </Button>
         </div>

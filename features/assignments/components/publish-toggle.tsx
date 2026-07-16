@@ -33,7 +33,7 @@ export function PublishToggle({ assignmentId, isPublished, courseId }: Props) {
       variant={isPublished ? "outline" : "default"}
       className={isPublished
         ? "border-orange-200 text-orange-600 hover:bg-orange-50"
-        : "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md shadow-emerald-200"}
+        : "bg-emerald-600 hover:bg-emerald-700 text-white"}
     >
       {loading ? (
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -66,7 +66,7 @@ export default async function LecturerAnalyticsPage() {
           { label: "Overall Average",   value: overallAvg ? `${overallAvg}%` : "—", icon: TrendingUp, color: "text-emerald-500", bg: "bg-emerald-50", border: "border-t-emerald-400" },
           { label: "Pending Grading",   value: pendingGrading,           icon: BookOpen,       color: "text-orange-500",  bg: "bg-orange-50",  border: "border-t-orange-400"  },
         ].map(({ label, value, icon: Icon, color, bg, border }) => (
-          <Card key={label} className={`border-t-4 ${border} shadow-sm hover:shadow-md transition-all`}>
+          <Card key={label} className="hover:shadow-sm transition-shadow">
             <CardContent className="pt-5 pb-4 flex items-center gap-3">
               <div className={`rounded-xl p-2.5 ${bg} ${color}`}><Icon className="h-5 w-5" /></div>
               <div>

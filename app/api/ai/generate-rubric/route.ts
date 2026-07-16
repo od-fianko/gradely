@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     if (session.user.role !== "LECTURER" && session.user.role !== "ADMIN")
       return forbidden("Only lecturers can generate rubrics");
 
-    const { title, description, totalMarks } = await req.json();
+    const { title, description, totalMarks, instructions } = await req.json();
     if (!title || !totalMarks) return badRequest("title and totalMarks required");
 
     const message = await client.messages.create({
@@ -24,6 +24,7 @@ export async function POST(req: Request) {
 
 Assignment title: ${title}
 ${description ? `Description: ${description}` : ""}
+${instructions?.trim() ? `Lecturer's guidance (follow faithfully): ${instructions.trim()}` : ""}
 Total marks: ${totalMarks}
 
 Write a rubric in 3-5 bullet points that a lecturer can use to grade student responses. Focus on:
