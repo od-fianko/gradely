@@ -15,7 +15,7 @@
     "db:reset": "prisma migrate reset"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.32.1",
+    "@anthropic-ai/sdk": "^0.111.0",
     "@auth/prisma-adapter": "^2.7.4",
     "@hookform/resolvers": "^5.4.0",
     "@monaco-editor/react": "^4.7.0",
@@ -41,6 +41,8 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "fast-xml-parser": "^5.10.1",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.460.0",
     "next": "15.5.20",
     "next-auth": "^5.0.0-beta.25",

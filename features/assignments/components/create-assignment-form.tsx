@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Trash2, CheckSquare, Code2, Sparkles, FileText } from "lucide-react";
+import { Loader2, Plus, Trash2, CheckSquare, Code2, Sparkles, FileText, Upload } from "lucide-react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,6 +60,10 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
   // Programming state
   const [testCases,    setTestCases]    = useState<TestCase[]>([defaultTestCase()]);
   const [starterCode,  setStarterCode]  = useState("");
+
+  // Generate-from-slides (shared across types)
+  const slidesInputRef = useRef<HTMLInputElement>(null);
+  const [slidesLoading, setSlidesLoading] = useState(false);
 
   const form = useForm<Schema>({
     resolver:      zodResolver(schema),
@@ -121,6 +125,55 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
     setAiRLoading(false);
     if (!res.ok) { setError(json.error ?? "AI generation failed"); return; }
     setRubric(json.data.rubric ?? "");
+  };
+
+  // ── AI: generate from uploaded slides (PDF / PPTX / image) ───────────────────
+
+  const triggerSlidesUpload = () => slidesInputRef.current?.click();
+
+  const handleSlidesSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    setSlidesLoading(true); setError(null);
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("type", selectedType);
+    formData.append("title", title);
+    formData.append("description", description);
+    formData.append("totalMarks", String(totalMarks));
+    formData.append("count", String(selectedType === "PROGRAMMING" ? testCases.length : 4));
+
+    const res  = await fetch("/api/ai/generate-from-slides", { method: "POST", body: formData });
+    const json = await res.json();
+    setSlidesLoading(false);
+    if (!res.ok) { setError(json.error ?? "Failed to generate from slides"); return; }
+
+    if (selectedType === "MULTIPLE_CHOICE") {
+      const generated: QuizQuestion[] = (json.data.questions ?? []).map((q: QuizQuestion) => ({
+        text:    q.text,
+        points:  q.points ?? 1,
+        options: q.options.map((o: QuizOption) => ({ text: o.text, isCorrect: o.isCorrect })),
+      }));
+      if (generated.length) setQuestions(generated);
+    } else if (selectedType === "SHORT_ANSWER") {
+      setRubric(json.data.rubric ?? "");
+      if (!title.trim())       form.setValue("title", json.data.suggestedTitle ?? "");
+      if (!description.trim()) form.setValue("description", json.data.suggestedDescription ?? "");
+    } else if (selectedType === "PROGRAMMING") {
+      setStarterCode(json.data.starterCode ?? "");
+      const generated: TestCase[] = (json.data.testCases ?? []).map((tc: TestCase) => ({
+        title:          tc.title ?? "",
+        input:          tc.input ?? "",
+        expectedOutput: tc.expectedOutput ?? "",
+        points:         tc.points ?? 1,
+        isHidden:       tc.isHidden ?? false,
+      }));
+      if (generated.length) setTestCases(generated);
+      if (!title.trim())       form.setValue("title", json.data.suggestedTitle ?? "");
+      if (!description.trim()) form.setValue("description", json.data.suggestedDescription ?? "");
+    }
   };
 
   // ── Test case helpers ─────────────────────────────────────────────────────────
@@ -202,6 +255,9 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
         {error && (
           <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
         )}
+
+        <input ref={slidesInputRef} type="file" className="hidden"
+          accept=".pdf,.pptx,.jpg,.jpeg,.png,.webp" onChange={handleSlidesSelected} />
 
         {/* Basic details */}
         <Card>
@@ -286,13 +342,22 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
               <CardTitle className="text-base flex items-center gap-2">
                 <FileText className="h-4 w-4 text-amber-500" /> Grading Rubric
               </CardTitle>
-              <Button type="button" variant="outline" size="sm"
-                className="gap-1.5 text-purple-600 border-purple-200 hover:bg-purple-50"
-                onClick={generateRubric} disabled={aiRLoading || !title}>
-                {aiRLoading
-                  ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Generating…</>
-                  : <><Sparkles className="h-3.5 w-3.5" />AI Generate Rubric</>}
-              </Button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button type="button" variant="outline" size="sm"
+                  className="gap-1.5 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                  onClick={triggerSlidesUpload} disabled={slidesLoading}>
+                  {slidesLoading
+                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Reading slides…</>
+                    : <><Upload className="h-3.5 w-3.5" />Generate from Slides</>}
+                </Button>
+                <Button type="button" variant="outline" size="sm"
+                  className="gap-1.5 text-purple-600 border-purple-200 hover:bg-purple-50"
+                  onClick={generateRubric} disabled={aiRLoading || !title}>
+                  {aiRLoading
+                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Generating…</>
+                    : <><Sparkles className="h-3.5 w-3.5" />AI Generate Rubric</>}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <Textarea
@@ -317,6 +382,13 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
                 <CheckSquare className="h-4 w-4 text-blue-500" /> Quiz Questions
               </CardTitle>
               <div className="flex items-center gap-2 flex-wrap">
+                <Button type="button" size="sm" variant="outline"
+                  className="gap-1.5 text-indigo-600 border-indigo-200 hover:bg-indigo-50 h-8 text-xs"
+                  onClick={triggerSlidesUpload} disabled={slidesLoading}>
+                  {slidesLoading
+                    ? <><Loader2 className="h-3 w-3 animate-spin" />Reading slides…</>
+                    : <><Upload className="h-3 w-3" />Generate from Slides</>}
+                </Button>
                 {/* AI generate block */}
                 <div className="flex items-center gap-1.5">
                   <Input
@@ -401,9 +473,18 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
               <CardTitle className="text-base flex items-center gap-2">
                 <Code2 className="h-4 w-4 text-violet-500" /> Programming Setup
               </CardTitle>
-              <Button type="button" variant="outline" size="sm" onClick={addTestCase} className="gap-1.5">
-                <Plus className="h-3.5 w-3.5" /> Add Test
-              </Button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button type="button" variant="outline" size="sm"
+                  className="gap-1.5 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                  onClick={triggerSlidesUpload} disabled={slidesLoading}>
+                  {slidesLoading
+                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Reading slides…</>
+                    : <><Upload className="h-3.5 w-3.5" />Generate from Slides</>}
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={addTestCase} className="gap-1.5">
+                  <Plus className="h-3.5 w-3.5" /> Add Test
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-5">
 
