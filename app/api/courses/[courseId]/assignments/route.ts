@@ -39,7 +39,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ courseI
     const { courseId } = await params;
 
     const body = await req.json();
-    const { type, totalMarks, dueDate, programmingDetails, quizDetails, shortAnswerDetails, fileUploadDetails, ...base } = body;
+    const { type, totalMarks, dueDate, timeLimitMinutes, programmingDetails, quizDetails, shortAnswerDetails, fileUploadDetails, ...base } = body;
 
     if (!type || !totalMarks || !dueDate) return badRequest("type, totalMarks and dueDate are required");
 
@@ -48,6 +48,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ courseI
         ...base,
         type,
         totalMarks: Number(totalMarks),
+        timeLimitMinutes: timeLimitMinutes ? Number(timeLimitMinutes) : null,
         dueDate: new Date(dueDate),
         gradingMethod: GRADING_METHOD[type] ?? "MANUAL",
         courseId,

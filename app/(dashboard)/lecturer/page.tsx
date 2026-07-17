@@ -56,7 +56,7 @@ export default async function LecturerDashboardPage() {
     <div className="space-y-6 animate-fade-in">
 
       <div className="border-b pb-5">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Welcome back, {firstName}</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Welcome back, {firstName}</h1>
         <p className="mt-1 text-sm text-muted-foreground">An overview of your courses and student activity.</p>
       </div>
 
@@ -71,7 +71,7 @@ export default async function LecturerDashboardPage() {
                 <div className={`rounded-xl p-2.5 ${stat.light}`}><Icon className="h-4 w-4" /></div>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold text-slate-800">{stat.value}</p>
+                <p className="text-3xl font-bold text-foreground">{stat.value}</p>
               </CardContent>
             </Card>
           );
@@ -94,16 +94,16 @@ export default async function LecturerDashboardPage() {
             {pendingSubmissions.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center">
                 <ClipboardCheck className="h-8 w-8 text-slate-300 mb-2" />
-                <p className="text-sm text-slate-500">All caught up! No pending submissions.</p>
+                <p className="text-sm text-muted-foreground">All caught up! No pending submissions.</p>
               </div>
             ) : (
               <div className="space-y-2">
                 {pendingSubmissions.slice(0, 5).map((sub) => (
                   <Link key={sub.id}
                     href={`/lecturer/courses/${sub.assignment.courseId}/assignments/${sub.assignment.id}`}
-                    className="flex items-center justify-between rounded-lg border bg-slate-50 px-3 py-2.5 hover:bg-white hover:shadow-sm transition-all text-sm group">
+                    className="flex items-center justify-between rounded-lg border bg-muted/60 px-3 py-2.5 hover:bg-card hover:shadow-sm transition-all text-sm group">
                     <div>
-                      <p className="font-medium text-slate-700 group-hover:text-blue-600 transition-colors">{sub.student.name}</p>
+                      <p className="font-medium text-foreground/90 group-hover:text-blue-600 transition-colors">{sub.student.name}</p>
                       <p className="text-xs text-muted-foreground truncate max-w-48">{sub.assignment.title}</p>
                     </div>
                     <Badge variant="outline" className="text-orange-600 border-orange-200 bg-orange-50 text-xs ml-2 shrink-0">Grade</Badge>
@@ -124,14 +124,14 @@ export default async function LecturerDashboardPage() {
             {dueSoon.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center">
                 <Clock className="h-8 w-8 text-slate-300 mb-2" />
-                <p className="text-sm text-slate-500">No assignments due this week.</p>
+                <p className="text-sm text-muted-foreground">No assignments due this week.</p>
               </div>
             ) : (
               <div className="space-y-2">
                 {dueSoon.map((a) => (
-                  <div key={a.id} className="flex items-center justify-between rounded-lg border bg-slate-50 px-3 py-2.5 text-sm">
+                  <div key={a.id} className="flex items-center justify-between rounded-lg border bg-muted/60 px-3 py-2.5 text-sm">
                     <div>
-                      <p className="font-medium text-slate-700 truncate max-w-48">{a.title}</p>
+                      <p className="font-medium text-foreground/90 truncate max-w-48">{a.title}</p>
                       <p className="text-xs text-muted-foreground">{a.course.code}</p>
                     </div>
                     <span className="text-xs text-purple-600 font-medium shrink-0 ml-2">

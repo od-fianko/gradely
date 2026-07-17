@@ -34,7 +34,7 @@ export default async function AdminUsersPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Users className="h-6 w-6 text-red-500" /> Users
         </h1>
         <p className="text-sm text-muted-foreground mt-0.5">
@@ -53,7 +53,7 @@ export default async function AdminUsersPage() {
                   {u.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-800 truncate">{u.name}</p>
+                  <p className="text-sm font-semibold text-foreground truncate">{u.name}</p>
                   <p className="text-xs text-muted-foreground truncate">{u.email}</p>
                 </div>
                 <div className="hidden sm:flex items-center gap-3 text-xs text-muted-foreground shrink-0">

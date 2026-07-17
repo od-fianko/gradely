@@ -40,7 +40,7 @@ export default async function AdminDashboardPage() {
     <div className="space-y-6 animate-fade-in">
 
       <div className="border-b pb-5">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Admin Dashboard</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Admin Dashboard</h1>
         <p className="mt-1 text-sm text-muted-foreground">Manage users, courses, and platform settings.</p>
       </div>
 
@@ -55,7 +55,7 @@ export default async function AdminDashboardPage() {
                 <div className={`rounded-xl p-2.5 ${stat.light}`}><Icon className="h-4 w-4" /></div>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold text-slate-800">{stat.value}</p>
+                <p className="text-3xl font-bold text-foreground">{stat.value}</p>
               </CardContent>
             </Card>
           );
@@ -73,7 +73,7 @@ export default async function AdminDashboardPage() {
             {recentUsers.map((u) => (
               <div key={u.id} className="flex items-center justify-between px-5 py-3">
                 <div>
-                  <p className="text-sm font-medium text-slate-800">{u.name}</p>
+                  <p className="text-sm font-medium text-foreground">{u.name}</p>
                   <p className="text-xs text-muted-foreground">{u.email}</p>
                 </div>
                 <div className="flex items-center gap-3">

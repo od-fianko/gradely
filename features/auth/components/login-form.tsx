@@ -49,7 +49,7 @@ export function LoginForm() {
   const isLoading = form.formState.isSubmitting;
 
   return (
-    <div className="rounded-2xl border bg-white/80 backdrop-blur-sm p-8 shadow-xl shadow-blue-100/50">
+    <div className="rounded-2xl border bg-card/80 backdrop-blur-sm p-8 shadow-xl shadow-blue-100/50">
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-900">Welcome back</h2>
         <p className="text-sm text-muted-foreground mt-1">Sign in to your Gradely account</p>
@@ -136,8 +136,8 @@ export function LoginForm() {
           </Button>
 
           {/* Dev helper */}
-          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 space-y-1">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Dev accounts</p>
+          <div className="rounded-xl border border-dashed border-border bg-muted/60 px-4 py-3 space-y-1">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Dev accounts</p>
             {[
               ["Admin",    "admin@gradely.edu"],
               ["Lecturer", "dr.mensah@gradely.edu"],
@@ -150,7 +150,7 @@ export function LoginForm() {
                   form.setValue("email", email);
                   form.setValue("password", "password123");
                 }}
-                className="block w-full text-left text-xs text-slate-600 hover:text-blue-600 transition-colors py-0.5"
+                className="block w-full text-left text-xs text-muted-foreground hover:text-blue-600 transition-colors py-0.5"
               >
                 <span className="font-medium">{role}:</span> {email}
               </button>

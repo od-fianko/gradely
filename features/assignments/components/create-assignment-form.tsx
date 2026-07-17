@@ -25,6 +25,8 @@ const schema = z.object({
   totalMarks:   z.coerce.number().int().min(1).max(1000),
   dueDate:      z.string().min(1, "Due date is required"),
   passingMarks: z.coerce.number().int().min(0).optional(),
+  timeLimitMinutes: z.string().optional()
+    .refine((v) => !v || (/^\d+$/.test(v) && +v >= 1 && +v <= 600), "1–600 minutes"),
 });
 
 type Schema = z.infer<typeof schema>;
@@ -39,11 +41,14 @@ const defaultQuestion = (kind: QuestionKind = "MCQ"): QuizQuestion => ({ text: "
 const defaultTestCase = (): TestCase     => ({ title: "", input: "", expectedOutput: "", points: 1, isHidden: false });
 
 const TYPE_LABELS: Record<string, string> = {
+  MULTIPLE_CHOICE: "Multiple Choice (MCQ)",
+  THEORY_SET:      "Theory Questions (written answers)",
+  SHORT_ANSWER:    "Essay — single question (AI-assisted grading)",
   PROGRAMMING:     "Programming (auto-graded via tests)",
-  MULTIPLE_CHOICE: "Quiz — MCQ, theory, or a mix",
-  SHORT_ANSWER:    "Short Answer (AI-assisted grading)",
   FILE_UPLOAD:     "File Upload (manual grading)",
+  OTHER:           "Custom — describe it to the AI",
 };
+// THEORY_SET and OTHER are UI-level choices; both resolve to real DB types.
 
 export function CreateAssignmentForm({ courseId }: { courseId: string }) {
   const router = useRouter();
@@ -66,15 +71,40 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
   const slidesInputRef = useRef<HTMLInputElement>(null);
   const [slidesLoading, setSlidesLoading] = useState(false);
 
+  // UI-level type selection: THEORY_SET/OTHER are presentation choices on top of DB types
+  const [uiType,       setUiType]       = useState<string>("MULTIPLE_CHOICE");
+  const [customFile,   setCustomFile]   = useState<File | null>(null);
+  const customFileRef = useRef<HTMLInputElement>(null);
+  const [designLoading, setDesignLoading] = useState(false);
+
   const form = useForm<Schema>({
     resolver:      zodResolver(schema),
-    defaultValues: { title: "", description: "", type: "SHORT_ANSWER", totalMarks: 100, dueDate: "" },
+    defaultValues: { title: "", description: "", type: "MULTIPLE_CHOICE", totalMarks: 100, dueDate: "" },
   });
 
   const selectedType  = form.watch("type");
   const title         = form.watch("title");
   const description   = form.watch("description");
   const totalMarks    = form.watch("totalMarks");
+
+  const handleTypeChange = (v: string) => {
+    setUiType(v);
+    if (v === "MULTIPLE_CHOICE" || v === "THEORY_SET") {
+      form.setValue("type", "MULTIPLE_CHOICE");
+      if (v === "THEORY_SET" && questions.every((q) => !q.text.trim())) {
+        setQuestions([defaultQuestion("SHORT_TEXT")]);
+      }
+    } else if (v === "OTHER") {
+      // form type resolves when the AI designs the assignment
+    } else {
+      form.setValue("type", v as Schema["type"]);
+    }
+  };
+
+  const showQuiz        = uiType === "MULTIPLE_CHOICE" || uiType === "THEORY_SET";
+  const showEssay       = uiType === "SHORT_ANSWER";
+  const showProgramming = uiType === "PROGRAMMING";
+  const showCustom      = uiType === "OTHER";
 
   // ── Quiz helpers ──────────────────────────────────────────────────────────────
 
@@ -187,6 +217,54 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
     }
   };
 
+  // ── AI: design a full assignment from natural language (+ optional slides) ──
+
+  const designWithAi = async () => {
+    if (!aiInstructions.trim()) { setError("Describe the assignment you want — question types, counts, difficulty, topic…"); return; }
+    setDesignLoading(true); setError(null);
+
+    const formData = new FormData();
+    formData.append("instructions", aiInstructions);
+    formData.append("totalMarks", String(totalMarks));
+    if (customFile) formData.append("file", customFile);
+
+    const res  = await fetch("/api/ai/design-assignment", { method: "POST", body: formData });
+    const json = await res.json();
+    setDesignLoading(false);
+    if (!res.ok) { setError(json.error ?? "AI design failed"); return; }
+
+    const d = json.data;
+    form.setValue("type", d.type);
+    if (!title.trim() && d.title)             form.setValue("title", d.title);
+    if (!description.trim() && d.description) form.setValue("description", d.description);
+
+    if (d.type === "MULTIPLE_CHOICE") {
+      const generated: QuizQuestion[] = (d.questions ?? []).map((q: QuizQuestion) => ({
+        text:         q.text,
+        points:       q.points ?? 1,
+        kind:         q.kind === "SHORT_TEXT" ? "SHORT_TEXT" : "MCQ",
+        sampleAnswer: q.sampleAnswer ?? "",
+        options:      (q.options ?? []).map((o: QuizOption) => ({ text: o.text, isCorrect: o.isCorrect })),
+      }));
+      if (generated.length) setQuestions(generated);
+      setUiType("MULTIPLE_CHOICE");
+    } else if (d.type === "PROGRAMMING") {
+      setStarterCode(d.starterCode ?? "");
+      const generated: TestCase[] = (d.testCases ?? []).map((tc: TestCase) => ({
+        title:          tc.title ?? "",
+        input:          tc.input ?? "",
+        expectedOutput: tc.expectedOutput ?? "",
+        points:         tc.points ?? 1,
+        isHidden:       tc.isHidden ?? false,
+      }));
+      if (generated.length) setTestCases(generated);
+      setUiType("PROGRAMMING");
+    } else if (d.type === "SHORT_ANSWER") {
+      setRubric(d.rubric ?? "");
+      setUiType("SHORT_ANSWER");
+    }
+  };
+
   // ── Test case helpers ─────────────────────────────────────────────────────────
 
   const addTestCase    = () => setTestCases((t) => [...t, defaultTestCase()]);
@@ -281,7 +359,7 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
             <FormField control={form.control} name="type" render={({ field }) => (
               <FormItem>
                 <FormLabel>Assignment type</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={handleTypeChange} value={uiType}>
                   <FormControl>
                     <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
                   </FormControl>
@@ -321,7 +399,7 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
         <Card>
           <CardHeader><CardTitle className="text-base">Marks & deadline</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <FormField control={form.control} name="totalMarks" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Total marks</FormLabel>
@@ -333,6 +411,13 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
                 <FormItem>
                   <FormLabel>Passing marks <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
                   <FormControl><Input type="number" min={0} disabled={isLoading} {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="timeLimitMinutes" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Time limit, min <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
+                  <FormControl><Input type="number" min={1} max={600} placeholder="e.g. 45" disabled={isLoading} {...field} value={field.value ?? ""} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
@@ -350,8 +435,58 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
           </CardContent>
         </Card>
 
+        {/* ── CUSTOM: describe the whole assignment to the AI ───────────────── */}
+        {showCustom && (
+          <Card className="border-primary/20">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" /> Describe your assignment
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Textarea
+                rows={5}
+                className="text-sm"
+                placeholder={`Tell the AI exactly what you want, in your own words. Examples:
+
+"A mixed test: 5 MCQs on sorting algorithms (2 marks each), 2 theory questions on time complexity (10 marks each)."
+
+"A Python coding exercise on recursion with 6 test cases, half of them hidden."
+
+"One long essay question comparing TCP and UDP with a rubric."`}
+                value={aiInstructions}
+                onChange={(e) => setAiInstructions(e.target.value)}
+              />
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button type="button" size="sm" onClick={designWithAi} disabled={designLoading} className="gap-1.5">
+                  {designLoading
+                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Designing…</>
+                    : <><Sparkles className="h-3.5 w-3.5" />Design with AI</>}
+                </Button>
+                <Button type="button" size="sm" variant="outline" className="gap-1.5"
+                  onClick={() => customFileRef.current?.click()}>
+                  <Upload className="h-3.5 w-3.5" />
+                  {customFile ? customFile.name.slice(0, 24) : "Attach slides (optional)"}
+                </Button>
+                {customFile && (
+                  <button type="button" className="text-xs text-muted-foreground hover:text-red-500"
+                    onClick={() => setCustomFile(null)}>
+                    remove
+                  </button>
+                )}
+                <input ref={customFileRef} type="file" className="hidden"
+                  accept=".pdf,.pptx,.jpg,.jpeg,.png,.webp"
+                  onChange={(e) => { setCustomFile(e.target.files?.[0] ?? null); e.target.value = ""; }} />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                The AI picks the best structure (MCQ mix, theory, essay, or code), drafts everything, and shows it here for you to review and edit before creating.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* ── SHORT ANSWER: rubric ───────────────────────────────────────────── */}
-        {selectedType === "SHORT_ANSWER" && (
+        {showEssay && (
           <Card className="border-amber-100">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">
@@ -367,7 +502,7 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
                 </p>
                 <Textarea
                   rows={2}
-                  className="bg-white text-sm"
+                  className="bg-card text-sm"
                   placeholder='Optional guidance — e.g. "Focus the question on time complexity trade-offs, aimed at second-year students."'
                   value={aiInstructions}
                   onChange={(e) => setAiInstructions(e.target.value)}
@@ -402,7 +537,7 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
         )}
 
         {/* ── MULTIPLE CHOICE: question builder ─────────────────────────────── */}
-        {selectedType === "MULTIPLE_CHOICE" && (
+        {showQuiz && (
           <Card className="border-blue-100">
             <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
               <CardTitle className="text-base flex items-center gap-2">
@@ -427,7 +562,7 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
                 </p>
                 <Textarea
                   rows={3}
-                  className="bg-white text-sm"
+                  className="bg-card text-sm"
                   placeholder='Describe what you want in your own words — e.g. "Generate 6 questions on binary trees: 2 easy, 3 medium, 1 very hard on AVL rotations. Worth 5 marks each."'
                   value={aiInstructions}
                   onChange={(e) => setAiInstructions(e.target.value)}
@@ -448,7 +583,7 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
                 </div>
               </div>
               {questions.map((q, qi) => (
-                <div key={qi} className="border rounded-xl p-4 space-y-3 bg-slate-50/50">
+                <div key={qi} className="border rounded-xl p-4 space-y-3 bg-muted/40">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className="text-blue-600 border-blue-200">Q{qi + 1}</Badge>
@@ -456,12 +591,12 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
                       <div className="inline-flex rounded-md border overflow-hidden text-xs">
                         <button type="button"
                           onClick={() => setQuestionKind(qi, "MCQ")}
-                          className={`px-2.5 py-1 transition-colors ${q.kind === "MCQ" ? "bg-primary text-white" : "bg-white text-slate-500 hover:bg-slate-50"}`}>
+                          className={`px-2.5 py-1 transition-colors ${q.kind === "MCQ" ? "bg-primary text-white" : "bg-card text-muted-foreground hover:bg-muted/60"}`}>
                           MCQ
                         </button>
                         <button type="button"
                           onClick={() => setQuestionKind(qi, "SHORT_TEXT")}
-                          className={`px-2.5 py-1 transition-colors border-l ${q.kind === "SHORT_TEXT" ? "bg-primary text-white" : "bg-white text-slate-500 hover:bg-slate-50"}`}>
+                          className={`px-2.5 py-1 transition-colors border-l ${q.kind === "SHORT_TEXT" ? "bg-primary text-white" : "bg-card text-muted-foreground hover:bg-muted/60"}`}>
                           Theory
                         </button>
                       </div>
@@ -476,12 +611,12 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
 
                   <div className="grid grid-cols-4 gap-3">
                     <div className="col-span-3">
-                      <label className="text-xs font-medium text-slate-600">Question text</label>
+                      <label className="text-xs font-medium text-muted-foreground">Question text</label>
                       <Input className="mt-1" placeholder="Enter question…" value={q.text}
                         onChange={(e) => updateQuestion(qi, "text", e.target.value)} />
                     </div>
                     <div>
-                      <label className="text-xs font-medium text-slate-600">Points</label>
+                      <label className="text-xs font-medium text-muted-foreground">Points</label>
                       <Input className="mt-1" type="number" min={1} value={q.points}
                         onChange={(e) => updateQuestion(qi, "points", Number(e.target.value))} />
                     </div>
@@ -489,7 +624,7 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
 
                   {q.kind === "MCQ" ? (
                     <div className="space-y-2">
-                      <p className="text-xs font-medium text-slate-500">Options <span className="text-muted-foreground font-normal">(tick the correct one(s))</span></p>
+                      <p className="text-xs font-medium text-muted-foreground">Options <span className="text-muted-foreground font-normal">(tick the correct one(s))</span></p>
                       {q.options.map((opt, oi) => (
                         <div key={oi} className="flex items-center gap-2">
                           <input type="checkbox" checked={opt.isCorrect}
@@ -514,7 +649,7 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
                     </div>
                   ) : (
                     <div>
-                      <label className="text-xs font-medium text-slate-600">
+                      <label className="text-xs font-medium text-muted-foreground">
                         Model answer <span className="text-muted-foreground font-normal">(optional — guides AI-assisted grading)</span>
                       </label>
                       <Textarea className="mt-1 text-sm" rows={3}
@@ -531,7 +666,7 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
         )}
 
         {/* ── PROGRAMMING: starter code + test cases ────────────────────────── */}
-        {selectedType === "PROGRAMMING" && (
+        {showProgramming && (
           <Card className="border-violet-100">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">
@@ -550,7 +685,7 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
                 </p>
                 <Textarea
                   rows={2}
-                  className="bg-white text-sm"
+                  className="bg-card text-sm"
                   placeholder='Optional guidance — e.g. "A medium-difficulty exercise on linked lists with 5 test cases, two of them hidden edge cases."'
                   value={aiInstructions}
                   onChange={(e) => setAiInstructions(e.target.value)}
@@ -565,11 +700,11 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
 
               {/* Starter code */}
               <div>
-                <label className="text-xs font-medium text-slate-600">
+                <label className="text-xs font-medium text-muted-foreground">
                   Starter code <span className="text-muted-foreground font-normal">(optional — given to students)</span>
                 </label>
                 <Textarea
-                  className="mt-1 font-mono text-xs bg-slate-950 text-emerald-400 border-slate-700 placeholder:text-slate-500"
+                  className="mt-1 font-mono text-xs bg-slate-950 text-emerald-400 border-slate-700 placeholder:text-slate-400"
                   rows={6}
                   placeholder="# Write starter code for students here…"
                   value={starterCode}
@@ -579,9 +714,9 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
 
               {/* Test cases */}
               <div className="space-y-4">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Test Cases</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Test Cases</p>
                 {testCases.map((tc, i) => (
-                  <div key={i} className="border rounded-xl p-4 space-y-3 bg-slate-50/50">
+                  <div key={i} className="border rounded-xl p-4 space-y-3 bg-muted/40">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <Badge variant="outline" className="text-violet-600 border-violet-200">Test {i + 1}</Badge>
@@ -602,12 +737,12 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
 
                     <div className="grid grid-cols-4 gap-3">
                       <div className="col-span-3">
-                        <label className="text-xs font-medium text-slate-600">Test name (optional)</label>
+                        <label className="text-xs font-medium text-muted-foreground">Test name (optional)</label>
                         <Input className="mt-1" placeholder="e.g. Empty array input" value={tc.title}
                           onChange={(e) => updateTestCase(i, "title", e.target.value)} />
                       </div>
                       <div>
-                        <label className="text-xs font-medium text-slate-600">Points</label>
+                        <label className="text-xs font-medium text-muted-foreground">Points</label>
                         <Input className="mt-1" type="number" min={1} value={tc.points}
                           onChange={(e) => updateTestCase(i, "points", Number(e.target.value))} />
                       </div>
@@ -615,12 +750,12 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
 
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="text-xs font-medium text-slate-600">Input (stdin)</label>
+                        <label className="text-xs font-medium text-muted-foreground">Input (stdin)</label>
                         <Textarea className="mt-1 font-mono text-xs" rows={3} placeholder="Input data…"
                           value={tc.input} onChange={(e) => updateTestCase(i, "input", e.target.value)} />
                       </div>
                       <div>
-                        <label className="text-xs font-medium text-slate-600">Expected output</label>
+                        <label className="text-xs font-medium text-muted-foreground">Expected output</label>
                         <Textarea className="mt-1 font-mono text-xs" rows={3} placeholder="Expected stdout…"
                           value={tc.expectedOutput} onChange={(e) => updateTestCase(i, "expectedOutput", e.target.value)} />
                       </div>

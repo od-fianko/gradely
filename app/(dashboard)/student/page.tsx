@@ -57,7 +57,7 @@ export default async function StudentDashboardPage() {
     <div className="space-y-6 animate-fade-in">
 
       <div className="border-b pb-5">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Welcome back, {session.user.name?.split(" ")[0]}</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Welcome back, {session.user.name?.split(" ")[0]}</h1>
         <p className="mt-1 text-sm text-muted-foreground">A summary of your coursework, deadlines and grades.</p>
       </div>
 
@@ -72,7 +72,7 @@ export default async function StudentDashboardPage() {
                 <div className={`rounded-xl p-2.5 ${stat.light}`}><Icon className="h-4 w-4" /></div>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold text-slate-800">{stat.value}</p>
+                <p className="text-3xl font-bold text-foreground">{stat.value}</p>
               </CardContent>
             </Card>
           );
@@ -93,16 +93,16 @@ export default async function StudentDashboardPage() {
             {upcomingAssignments.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center">
                 <ClipboardList className="h-8 w-8 text-slate-300 mb-2" />
-                <p className="text-sm text-slate-500">No upcoming assignments — you are all caught up!</p>
+                <p className="text-sm text-muted-foreground">No upcoming assignments — you are all caught up!</p>
               </div>
             ) : (
               <div className="space-y-2">
                 {upcomingAssignments.map((a) => (
                   <Link key={a.id}
                     href={`/student/courses/${a.course.id}/assignments/${a.id}`}
-                    className="flex items-center justify-between rounded-lg border bg-slate-50 px-3 py-2.5 hover:bg-white hover:shadow-sm transition-all text-sm group">
+                    className="flex items-center justify-between rounded-lg border bg-muted/60 px-3 py-2.5 hover:bg-card hover:shadow-sm transition-all text-sm group">
                     <div>
-                      <p className="font-medium text-slate-700 group-hover:text-blue-600 transition-colors truncate max-w-48">{a.title}</p>
+                      <p className="font-medium text-foreground/90 group-hover:text-blue-600 transition-colors truncate max-w-48">{a.title}</p>
                       <p className="text-xs text-muted-foreground">{a.course.code}</p>
                     </div>
                     <span className="text-xs text-orange-600 font-medium shrink-0 ml-2">
@@ -125,16 +125,16 @@ export default async function StudentDashboardPage() {
             {recentGrades.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center">
                 <Star className="h-8 w-8 text-slate-300 mb-2" />
-                <p className="text-sm text-slate-500">No grades yet.</p>
+                <p className="text-sm text-muted-foreground">No grades yet.</p>
               </div>
             ) : (
               <div className="space-y-2">
                 {recentGrades.map((g) => (
                   <Link key={g.id}
                     href={`/student/courses/${g.submission.assignment.courseId}/assignments/${g.submission.assignment.id}`}
-                    className="flex items-center justify-between rounded-lg border bg-slate-50 px-3 py-2.5 hover:bg-white hover:shadow-sm transition-all text-sm group">
+                    className="flex items-center justify-between rounded-lg border bg-muted/60 px-3 py-2.5 hover:bg-card hover:shadow-sm transition-all text-sm group">
                     <div>
-                      <p className="font-medium text-slate-700 group-hover:text-blue-600 transition-colors truncate max-w-48">
+                      <p className="font-medium text-foreground/90 group-hover:text-blue-600 transition-colors truncate max-w-48">
                         {g.submission.assignment.title}
                       </p>
                       <p className="text-xs text-muted-foreground">{g.submission.assignment.course.code}</p>

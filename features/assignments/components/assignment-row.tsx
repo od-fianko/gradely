@@ -41,7 +41,7 @@ export function AssignmentRow({ assignment: a, courseId, role }: Props) {
 
   return (
     <Link href={href}
-      className="flex items-center gap-4 rounded-xl border bg-white px-4 py-3.5 hover:shadow-md hover:border-blue-200 transition-all duration-200 group">
+      className="flex items-center gap-4 rounded-xl border bg-card px-4 py-3.5 hover:shadow-md hover:border-blue-200 transition-all duration-200 group">
 
       <div className={`rounded-lg border p-2 flex-shrink-0 ${meta.color}`}>
         <Icon className="h-4 w-4" />
@@ -49,7 +49,7 @@ export function AssignmentRow({ assignment: a, courseId, role }: Props) {
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <p className="font-medium text-sm text-slate-800 truncate group-hover:text-blue-600 transition-colors">
+          <p className="font-medium text-sm text-foreground truncate group-hover:text-blue-600 transition-colors">
             {a.title}
           </p>
           {!a.isPublished && role === "LECTURER" && (

@@ -8,6 +8,7 @@ import { Clock, Award } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { SubmissionForm } from "@/features/assignments/components/submission-form";
+import { StartAttempt } from "@/features/assignments/components/start-attempt";
 import { GradeCard } from "@/features/assignments/components/grade-card";
 
 export const metadata: Metadata = { title: "Assignment — Gradely" };
@@ -60,8 +61,14 @@ export default async function StudentAssignmentDetailPage({
   const overdue  = isPast(due);
   const canSubmit = !overdue || assignment.allowLateSubmit;
 
+  const timed      = !!assignment.timeLimitMinutes;
+  const needsStart = timed && !existing?.startedAt && !existing?.submittedAt;
+  const deadline   = timed && existing?.startedAt && !existing?.submittedAt
+    ? new Date(existing.startedAt.getTime() + assignment.timeLimitMinutes! * 60_000).toISOString()
+    : null;
+
   return (
-    <div className="space-y-6 animate-fade-in max-w-3xl">
+    <div className="space-y-6 animate-fade-in max-w-2xl mx-auto w-full">
 
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Link href="/student/courses" className="hover:text-blue-600 transition-colors">Courses</Link>
@@ -70,7 +77,7 @@ export default async function StudentAssignmentDetailPage({
           {assignment.course.code}
         </Link>
         <span>/</span>
-        <span className="text-slate-700 font-medium truncate">{assignment.title}</span>
+        <span className="text-foreground/90 font-medium truncate">{assignment.title}</span>
       </div>
 
       <div>
@@ -81,12 +88,13 @@ export default async function StudentAssignmentDetailPage({
           {overdue && !existing && <Badge variant="destructive">Overdue</Badge>}
           {existing?.grade && <Badge className="bg-emerald-500">Graded</Badge>}
         </div>
-        <h1 className="text-2xl font-bold text-slate-800">{assignment.title}</h1>
+        <h1 className="text-2xl font-bold text-foreground">{assignment.title}</h1>
         <p className="text-sm text-muted-foreground mt-1 max-w-xl">{assignment.description}</p>
         <p className={`text-xs mt-1 flex items-center gap-1.5 ${overdue ? "text-red-500" : "text-muted-foreground"}`}>
           <Clock className="h-3 w-3" />
           {overdue ? "Was due" : "Due"} {format(due, "dd MMM yyyy, h:mm a")}
           · {assignment.totalMarks} marks
+          {assignment.timeLimitMinutes ? ` · ⏱ ${assignment.timeLimitMinutes} min` : ""}
         </p>
       </div>
 
@@ -109,6 +117,9 @@ export default async function StudentAssignmentDetailPage({
       )}
 
       {canSubmit ? (
+        needsStart ? (
+          <StartAttempt assignmentId={assignment.id} minutes={assignment.timeLimitMinutes!} />
+        ) : (
         <SubmissionForm
           assignment={{
             id:          assignment.id,
@@ -119,7 +130,9 @@ export default async function StudentAssignmentDetailPage({
           }}
           existing={existing}
           courseId={courseId}
+          deadline={deadline}
         />
+        )
       ) : (
         <Card className="border-orange-200 bg-orange-50">
           <CardContent className="py-6 text-center">

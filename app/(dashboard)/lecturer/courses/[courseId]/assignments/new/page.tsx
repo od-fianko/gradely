@@ -30,11 +30,11 @@ export default async function NewAssignmentPage({
           {course.code}
         </Link>
         <span>/</span>
-        <span className="text-slate-700 font-medium">New Assignment</span>
+        <span className="text-foreground/90 font-medium">New Assignment</span>
       </div>
 
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Create Assignment</h1>
+        <h1 className="text-2xl font-bold text-foreground">Create Assignment</h1>
         <p className="text-sm text-muted-foreground mt-0.5">{course.title}</p>
       </div>
 

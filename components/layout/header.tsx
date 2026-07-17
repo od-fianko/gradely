@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { ChevronDown, LogOut, User, Menu } from "lucide-react";
+import { ChevronDown, LogOut, User, Menu, Settings } from "lucide-react";
+import Link from "next/link";
 import { signOutAction } from "@/features/auth/actions/sign-out";
 import { NotificationsPopover } from "@/features/notifications/components/notifications-popover";
 import { SidebarContent, type SidebarUser, type SidebarCourse } from "@/components/layout/sidebar";
@@ -48,7 +49,7 @@ export function Header({ user, courses }: { user: HeaderUser; courses: SidebarCo
   const title    = SECTION_TITLES[section] ?? "Dashboard";
 
   return (
-    <header className="flex h-14 items-center justify-between border-b bg-white px-4 md:px-6">
+    <header className="flex h-14 items-center justify-between border-b bg-card px-4 md:px-6">
 
       <div className="flex items-center gap-2">
         {/* Mobile: hamburger opens the sidebar as a drawer */}
@@ -64,7 +65,7 @@ export function Header({ user, courses }: { user: HeaderUser; courses: SidebarCo
           </SheetContent>
         </Sheet>
 
-        <h1 className="text-sm font-semibold text-slate-700">{title}</h1>
+        <h1 className="text-sm font-semibold text-foreground/90">{title}</h1>
       </div>
 
       <div className="flex items-center gap-1">
@@ -93,9 +94,17 @@ export function Header({ user, courses }: { user: HeaderUser; courses: SidebarCo
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 cursor-pointer">
-              <User className="h-4 w-4" />
-              Profile
+            <DropdownMenuItem asChild className="gap-2 cursor-pointer">
+              <Link href="/profile">
+                <User className="h-4 w-4" />
+                Profile
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild className="gap-2 cursor-pointer">
+              <Link href="/profile#appearance">
+                <Settings className="h-4 w-4" />
+                Settings
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem

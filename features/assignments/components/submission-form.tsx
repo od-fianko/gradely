@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, CheckCircle2, RefreshCw, Play, Upload, X, FileText } from "lucide-react";
+import { Loader2, CheckCircle2, RefreshCw, Play, Upload, X, FileText, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,13 +39,14 @@ interface Props {
     fileSubmission:        { originalName: string; fileUrl: string } | null;
   } | null;
   courseId: string;
+  deadline?: string | null; // ISO — timed attempts auto-submit at this moment
 }
 
 type TestResult = { testCaseId: string; title: string | null; passed: boolean; actual: string; expected: string; points: number };
 
 const LANGUAGES = ["PYTHON", "JAVASCRIPT", "JAVA", "C"];
 
-export function SubmissionForm({ assignment, existing, courseId }: Props) {
+export function SubmissionForm({ assignment, existing, courseId, deadline }: Props) {
   const router   = useRouter();
   const fileRef  = useRef<HTMLInputElement>(null);
 
@@ -169,12 +170,37 @@ export function SubmissionForm({ assignment, existing, courseId }: Props) {
     router.refresh();
   };
 
+  // ── Timed attempt countdown ─────────────────────────────────────────────────
+  const [remaining, setRemaining] = useState<number | null>(null);
+  const autoSubmitted = useRef(false);
+
+  useEffect(() => {
+    if (!deadline) return;
+    const tick = () => setRemaining(Math.max(0, Math.floor((new Date(deadline).getTime() - Date.now()) / 1000)));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [deadline]);
+
+  const submitRef = useRef(submit);
+  submitRef.current = submit;
+  useEffect(() => {
+    if (remaining === 0 && !autoSubmitted.current && !done) {
+      autoSubmitted.current = true;
+      submitRef.current();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remaining, done]);
+
+  const fmtClock = (s: number) =>
+    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+
   if (done || (existing?.grade)) {
     return (
       <Card className="border-emerald-200">
         <CardContent className="py-8 flex flex-col items-center text-center gap-2">
           <CheckCircle2 className="h-10 w-10 text-emerald-500" />
-          <p className="font-semibold text-slate-800">{existing?.grade ? "Assignment graded" : "Submitted!"}</p>
+          <p className="font-semibold text-foreground">{existing?.grade ? "Assignment graded" : "Submitted!"}</p>
           <p className="text-sm text-muted-foreground">
             {existing?.grade ? "Check your grade above." : "Your submission has been recorded."}
           </p>
@@ -196,6 +222,18 @@ export function SubmissionForm({ assignment, existing, courseId }: Props) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+
+        {deadline && remaining !== null && (
+          <div className={`sticky top-0 z-10 flex items-center justify-between rounded-lg border px-4 py-2.5 ${remaining <= 60 ? "bg-red-50 border-red-200" : "bg-card"}`}>
+            <span className="text-sm font-medium flex items-center gap-2">
+              <Timer className={`h-4 w-4 ${remaining <= 60 ? "text-red-500" : "text-primary"}`} />
+              Time remaining
+            </span>
+            <span className={`font-mono text-lg font-bold tabular-nums ${remaining <= 60 ? "text-red-600" : "text-foreground"}`}>
+              {fmtClock(remaining)}
+            </span>
+          </div>
+        )}
 
         {error && (
           <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
@@ -229,7 +267,7 @@ export function SubmissionForm({ assignment, existing, courseId }: Props) {
 
             <Textarea rows={14} placeholder={`# Write your ${language} code here…`} value={code}
               onChange={(e) => setCode(e.target.value)} disabled={loading}
-              className="font-mono text-sm bg-slate-950 text-emerald-400 border-slate-700 resize-y placeholder:text-slate-500" />
+              className="font-mono text-sm bg-slate-950 text-emerald-400 border-slate-700 resize-y placeholder:text-slate-400" />
 
             {results && (
               <div className="space-y-1.5">
@@ -257,13 +295,18 @@ export function SubmissionForm({ assignment, existing, courseId }: Props) {
 
         {/* ── MULTIPLE CHOICE ── */}
         {assignment.type === "MULTIPLE_CHOICE" && assignment.quizDetails && (
-          <div className="space-y-6">
+          <div className="space-y-5">
             {assignment.quizDetails.questions.map((q, qi) => (
-              <div key={q.id} className="space-y-2">
-                <p className="text-sm font-medium text-slate-800">
-                  Q{qi + 1}. {q.text}
-                  <span className="ml-2 text-xs text-muted-foreground">({q.points} pt{q.points !== 1 ? "s" : ""})</span>
-                </p>
+              <div key={q.id} className="rounded-xl border bg-card p-5 shadow-sm space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-base font-medium leading-relaxed">
+                    <span className="text-primary font-semibold mr-2">{qi + 1}.</span>
+                    {q.text}
+                  </p>
+                  <span className="shrink-0 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                    {q.points} pt{q.points !== 1 ? "s" : ""}
+                  </span>
+                </div>
                 {q.kind === "SHORT_TEXT" ? (
                   <Textarea
                     rows={4}
@@ -280,7 +323,7 @@ export function SubmissionForm({ assignment, existing, courseId }: Props) {
                       return (
                         <button key={opt.id} type="button"
                           onClick={() => toggleOption(q.id, opt.id, q.isMultiple)}
-                          className={`w-full text-left text-sm px-3 py-2 rounded-lg border transition-all ${selected ? "border-blue-500 bg-blue-50 text-blue-700 font-medium" : "border-slate-200 hover:border-blue-300 hover:bg-slate-50 text-slate-700"}`}>
+                          className={`w-full text-left text-sm px-3 py-2 rounded-lg border transition-all ${selected ? "border-blue-500 bg-blue-50 text-blue-700 font-medium" : "border-border hover:border-blue-300 hover:bg-muted/60 text-foreground/90"}`}>
                           {opt.text}
                         </button>
                       );
@@ -309,11 +352,11 @@ export function SubmissionForm({ assignment, existing, courseId }: Props) {
               </div>
             ) : (
               <div
-                className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center hover:border-blue-300 hover:bg-blue-50/50 transition-all cursor-pointer"
+                className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-blue-300 hover:bg-blue-50/50 transition-all cursor-pointer"
                 onClick={() => fileRef.current?.click()}
               >
                 <Upload className="h-8 w-8 text-slate-400 mx-auto mb-2" />
-                <p className="text-sm font-medium text-slate-600">Click to select a file</p>
+                <p className="text-sm font-medium text-muted-foreground">Click to select a file</p>
                 <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, ZIP — max 10 MB</p>
                 {selectedFile && (
                   <p className="text-xs text-blue-600 mt-2 font-medium">{selectedFile.name} selected</p>

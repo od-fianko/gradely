@@ -53,7 +53,7 @@ export function CourseCard({ course, role }: CourseCardProps) {
                 </span>
                 {!course.isActive && <Badge variant="secondary">Inactive</Badge>}
               </div>
-              <h3 className="font-semibold text-slate-800 text-sm leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+              <h3 className="font-semibold text-foreground text-sm leading-snug line-clamp-2 group-hover:text-primary transition-colors">
                 {course.title}
               </h3>
             </div>

@@ -40,7 +40,7 @@ export default async function StudentCoursesPage() {
     <div className="space-y-6 animate-fade-in">
 
       <div>
-        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <BookOpen className="h-6 w-6 text-blue-500" />
           Courses
         </h1>
@@ -61,7 +61,7 @@ export default async function StudentCoursesPage() {
               <div className="h-14 w-14 rounded-2xl bg-blue-50 flex items-center justify-center mb-3">
                 <BookOpen className="h-7 w-7 text-blue-400" />
               </div>
-              <h3 className="font-semibold text-slate-700 mb-1">No enrollments yet</h3>
+              <h3 className="font-semibold text-foreground/90 mb-1">No enrollments yet</h3>
               <p className="text-sm text-muted-foreground">Switch to Explore to find courses to join.</p>
             </div>
           ) : (

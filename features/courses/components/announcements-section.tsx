@@ -51,7 +51,7 @@ export function AnnouncementsSection({ courseId, announcements: initial, canPost
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+        <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
           <Megaphone className="h-5 w-5 text-amber-500" /> Announcements
         </h2>
         {canPost && !showForm && (
@@ -101,7 +101,7 @@ export function AnnouncementsSection({ courseId, announcements: initial, canPost
                 <p className="text-xs text-muted-foreground">by {a.author.name}</p>
               </CardHeader>
               <CardContent className="px-4 pb-4">
-                <p className="text-sm text-slate-700 whitespace-pre-wrap">{a.content}</p>
+                <p className="text-sm text-foreground/90 whitespace-pre-wrap">{a.content}</p>
               </CardContent>
             </Card>
           ))}

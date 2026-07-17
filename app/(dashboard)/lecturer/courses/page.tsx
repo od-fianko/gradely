@@ -21,7 +21,7 @@ export default async function LecturerCoursesPage() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <BookOpen className="h-6 w-6 text-blue-500" />
             My Courses
           </h1>
@@ -37,7 +37,7 @@ export default async function LecturerCoursesPage() {
           <div className="h-16 w-16 rounded-2xl bg-blue-50 flex items-center justify-center mb-4">
             <GraduationCap className="h-8 w-8 text-blue-400" />
           </div>
-          <h3 className="font-semibold text-slate-700 mb-1">No courses yet</h3>
+          <h3 className="font-semibold text-foreground/90 mb-1">No courses yet</h3>
           <p className="text-sm text-muted-foreground max-w-xs">
             Create your first course to get started. Students will be able to enroll and submit assignments.
           </p>

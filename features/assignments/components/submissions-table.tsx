@@ -40,6 +40,7 @@ interface Submission {
   id:          string;
   status:      string;
   submittedAt: Date | null;
+  startedAt:   Date | null;
   isLate:      boolean;
   integrityFlagged:   boolean;
   integrityScore:     number | null;
@@ -176,7 +177,7 @@ export function SubmissionsTable({
                 {/* Row header */}
                 <div className="flex items-center gap-3">
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm text-slate-800 truncate">{sub.student.name}</p>
+                    <p className="font-medium text-sm text-foreground truncate">{sub.student.name}</p>
                     <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                       <span className="text-xs text-muted-foreground">{sub.student.email}</span>
                       {sub.submittedAt && (
@@ -186,6 +187,11 @@ export function SubmissionsTable({
                         </span>
                       )}
                       {sub.isLate && <Badge variant="destructive" className="text-xs">Late</Badge>}
+                      {sub.startedAt && sub.submittedAt && (
+                        <span className="text-xs text-muted-foreground">
+                          took {Math.max(1, Math.round((new Date(sub.submittedAt).getTime() - new Date(sub.startedAt).getTime()) / 60000))}m
+                        </span>
+                      )}
                       {sub.integrityFlagged && (
                         <Badge variant="destructive" className="text-xs gap-1">
                           <ShieldAlert className="h-3 w-3" /> Integrity {sub.integrityScore != null ? `${sub.integrityScore}%` : ""}
@@ -248,9 +254,9 @@ export function SubmissionsTable({
 
                     {/* Short answer */}
                     {sub.shortAnswerSubmission && (
-                      <div className="rounded-lg bg-slate-50 border p-3">
-                        <p className="text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">Answer</p>
-                        <p className="text-sm text-slate-700 whitespace-pre-wrap">{sub.shortAnswerSubmission.answer}</p>
+                      <div className="rounded-lg bg-muted/60 border p-3">
+                        <p className="text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wide">Answer</p>
+                        <p className="text-sm text-foreground/90 whitespace-pre-wrap">{sub.shortAnswerSubmission.answer}</p>
                         {rubric && (
                           <p className="text-xs text-muted-foreground mt-2 border-t pt-2">
                             <span className="font-medium">Rubric:</span> {rubric}
@@ -269,7 +275,7 @@ export function SubmissionsTable({
 
                         {testResults.length > 0 && (
                           <div className="space-y-1.5">
-                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                               Test Results — {passedTests}/{testResults.length} passed
                             </p>
                             {testResults.map((r, i) => (
@@ -316,7 +322,7 @@ export function SubmissionsTable({
                           {codeReview[sub.id] && (
                             <button type="button"
                               onClick={() => setShowReview((s) => ({ ...s, [sub.id]: !s[sub.id] }))}
-                              className="text-xs text-muted-foreground flex items-center gap-1 hover:text-slate-700">
+                              className="text-xs text-muted-foreground flex items-center gap-1 hover:text-foreground/90">
                               {showReview[sub.id] ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                               {showReview[sub.id] ? "Hide" : "Show"} review
                             </button>
@@ -329,29 +335,29 @@ export function SubmissionsTable({
                             <div className="rounded-lg border p-4 space-y-3 bg-purple-50/40 border-purple-100">
                               <div className="flex items-center gap-2">
                                 <Sparkles className="h-4 w-4 text-purple-500" />
-                                <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">AI Code Review</span>
+                                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">AI Code Review</span>
                                 <Badge variant="outline" className={`text-xs capitalize ${QUALITY_STYLE[r.quality] ?? ""}`}>
                                   {r.quality}
                                 </Badge>
                               </div>
-                              <p className="text-sm text-slate-700">{r.summary}</p>
+                              <p className="text-sm text-foreground/90">{r.summary}</p>
                               <div className="grid grid-cols-2 gap-3 text-xs">
                                 {r.strengths?.length > 0 && (
                                   <div>
                                     <p className="font-semibold text-emerald-700 mb-1">Strengths</p>
-                                    <ul className="space-y-0.5">{r.strengths.map((s, i) => <li key={i} className="text-slate-600">• {s}</li>)}</ul>
+                                    <ul className="space-y-0.5">{r.strengths.map((s, i) => <li key={i} className="text-muted-foreground">• {s}</li>)}</ul>
                                   </div>
                                 )}
                                 {r.improvements?.length > 0 && (
                                   <div>
                                     <p className="font-semibold text-amber-700 mb-1">Improvements</p>
-                                    <ul className="space-y-0.5">{r.improvements.map((s, i) => <li key={i} className="text-slate-600">• {s}</li>)}</ul>
+                                    <ul className="space-y-0.5">{r.improvements.map((s, i) => <li key={i} className="text-muted-foreground">• {s}</li>)}</ul>
                                   </div>
                                 )}
                               </div>
                               <div className="grid grid-cols-2 gap-3 text-xs border-t pt-2">
-                                <p><span className="font-medium text-slate-600">Style:</span> {r.codeStyle}</p>
-                                <p><span className="font-medium text-slate-600">Complexity:</span> {r.complexity}</p>
+                                <p><span className="font-medium text-muted-foreground">Style:</span> {r.codeStyle}</p>
+                                <p><span className="font-medium text-muted-foreground">Complexity:</span> {r.complexity}</p>
                               </div>
                             </div>
                           );
@@ -361,17 +367,17 @@ export function SubmissionsTable({
 
                     {/* Quiz answers */}
                     {sub.quizSubmission && sub.quizSubmission.answers.length > 0 && (
-                      <div className="rounded-lg bg-slate-50 border p-3 space-y-2">
-                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Quiz Answers</p>
+                      <div className="rounded-lg bg-muted/60 border p-3 space-y-2">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Quiz Answers</p>
                         {sub.quizSubmission.answers.map((a, i) => (
                           <div key={a.questionId} className="text-sm">
-                            <p className="font-medium text-slate-700 text-xs">
+                            <p className="font-medium text-foreground/90 text-xs">
                               Q{i + 1}. {a.question?.text ?? a.questionId}
                               {a.question && <span className="ml-1 text-muted-foreground">({a.question.points} pt{a.question.points !== 1 ? "s" : ""})</span>}
                             </p>
                             {a.question?.kind === "SHORT_TEXT" ? (
                               <div className="mt-1 space-y-1.5">
-                                <p className="text-xs text-slate-700 whitespace-pre-wrap rounded border bg-white p-2">
+                                <p className="text-xs text-foreground/90 whitespace-pre-wrap rounded border bg-card p-2">
                                   {a.textAnswer?.trim() || <span className="text-muted-foreground italic">No answer given</span>}
                                 </p>
                                 {a.question.sampleAnswer && (
@@ -394,8 +400,8 @@ export function SubmissionsTable({
 
                     {/* File */}
                     {sub.fileSubmission && (
-                      <div className="rounded-lg bg-slate-50 border p-3">
-                        <p className="text-xs font-semibold text-slate-500 mb-1">File</p>
+                      <div className="rounded-lg bg-muted/60 border p-3">
+                        <p className="text-xs font-semibold text-muted-foreground mb-1">File</p>
                         <a href={sub.fileSubmission.fileUrl} target="_blank" rel="noopener noreferrer"
                           className="text-sm text-blue-600 hover:underline">
                           {sub.fileSubmission.originalName}
@@ -406,7 +412,7 @@ export function SubmissionsTable({
                     {/* Grading controls */}
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="text-xs font-medium text-slate-600">Score (max {totalMarks})</label>
+                        <label className="text-xs font-medium text-muted-foreground">Score (max {totalMarks})</label>
                         <Input type="number" min={0} max={totalMarks} className="mt-1"
                           value={scores[sub.id] ?? sub.grade?.score ?? ""}
                           onChange={(e) => setScores((s) => ({ ...s, [sub.id]: e.target.value }))} />
@@ -425,7 +431,7 @@ export function SubmissionsTable({
                     </div>
 
                     <div>
-                      <label className="text-xs font-medium text-slate-600">Feedback</label>
+                      <label className="text-xs font-medium text-muted-foreground">Feedback</label>
                       <Textarea className="mt-1" rows={3} placeholder="Write feedback for the student…"
                         value={feedbacks[sub.id] ?? sub.grade?.feedback ?? ""}
                         onChange={(e) => setFeedbacks((s) => ({ ...s, [sub.id]: e.target.value }))} />

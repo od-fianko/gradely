@@ -49,7 +49,7 @@ export function RegisterForm() {
     return (
       <div className="flex flex-col items-center gap-3 py-6">
         <CheckCircle2 className="h-12 w-12 text-emerald-500" />
-        <p className="font-semibold text-slate-800">Account created!</p>
+        <p className="font-semibold text-foreground">Account created!</p>
         <p className="text-sm text-muted-foreground">Redirecting you to sign in…</p>
       </div>
     );

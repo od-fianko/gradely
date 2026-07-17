@@ -55,8 +55,8 @@ export function NotificationsPopover() {
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative hover:bg-slate-100 transition-colors">
-          <Bell className="h-4 w-4 text-slate-500" />
+        <Button variant="ghost" size="icon" className="relative hover:bg-muted transition-colors">
+          <Bell className="h-4 w-4 text-muted-foreground" />
           {unread > 0 && (
             <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
               {unread > 9 ? "9+" : unread}
@@ -65,7 +65,7 @@ export function NotificationsPopover() {
         </Button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" className="w-80 rounded-xl shadow-lg border-slate-200 p-0">
+      <DropdownMenuContent align="end" className="w-80 rounded-xl shadow-lg border-border p-0">
         <div className="flex items-center justify-between px-4 py-3">
           <DropdownMenuLabel className="p-0 text-sm font-semibold">Notifications</DropdownMenuLabel>
           {unread > 0 && (
@@ -86,10 +86,10 @@ export function NotificationsPopover() {
             notifications.map((n) => (
               <div key={n.id}
                 onClick={() => !n.isRead && markRead(n.id)}
-                className={`flex gap-3 px-4 py-3 border-b last:border-0 cursor-pointer hover:bg-slate-50 transition-colors ${n.isRead ? "opacity-60" : ""}`}>
+                className={`flex gap-3 px-4 py-3 border-b last:border-0 cursor-pointer hover:bg-muted/60 transition-colors ${n.isRead ? "opacity-60" : ""}`}>
                 <span className="text-lg shrink-0 mt-0.5">{TYPE_ICON[n.type] ?? "🔔"}</span>
                 <div className="flex-1 min-w-0">
-                  <p className={`text-xs leading-snug ${n.isRead ? "text-slate-600" : "text-slate-800 font-semibold"}`}>
+                  <p className={`text-xs leading-snug ${n.isRead ? "text-muted-foreground" : "text-foreground font-semibold"}`}>
                     {n.title}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.message}</p>

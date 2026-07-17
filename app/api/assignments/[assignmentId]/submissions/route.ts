@@ -265,6 +265,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ assignm
       where: { assignmentId, studentId: session.user.id },
     });
 
+    // Timed attempts: reject submissions after the per-student clock runs out
+    // (60s grace for network latency / auto-submit round trips)
+    if (assignment.timeLimitMinutes && existing?.startedAt) {
+      const deadlineMs = existing.startedAt.getTime() + assignment.timeLimitMinutes * 60_000 + 60_000;
+      if (now.getTime() > deadlineMs) {
+        return badRequest("Time limit exceeded — this attempt has closed");
+      }
+    }
+
     const body = await req.json();
     const isLate = now > assignment.dueDate;
     const updateData = buildSubmissionUpdateData(assignment.type, body, isLate, now);

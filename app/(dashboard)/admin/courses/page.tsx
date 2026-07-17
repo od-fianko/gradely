@@ -21,7 +21,7 @@ export default async function AdminCoursesPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <BookOpen className="h-6 w-6 text-red-500" /> All Courses
         </h1>
         <p className="text-sm text-muted-foreground mt-0.5">{courses.length} courses on the platform</p>
@@ -40,7 +40,7 @@ export default async function AdminCoursesPage() {
                       <span className="font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{c.code}</span>
                       {!c.isActive && <Badge variant="secondary" className="text-xs">Inactive</Badge>}
                     </div>
-                    <p className="text-sm font-semibold text-slate-800 truncate">{c.title}</p>
+                    <p className="text-sm font-semibold text-foreground truncate">{c.title}</p>
                     <p className="text-xs text-muted-foreground">{c.lecturer.name} · {c.semester}</p>
                   </div>
                   <div className="flex items-center gap-4 text-xs text-muted-foreground shrink-0">

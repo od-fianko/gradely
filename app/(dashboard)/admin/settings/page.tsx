@@ -25,7 +25,7 @@ export default async function AdminSettingsPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Settings className="h-6 w-6 text-red-500" /> Settings
         </h1>
         <p className="text-sm text-muted-foreground mt-0.5">Platform configuration and environment status</p>
@@ -39,16 +39,16 @@ export default async function AdminSettingsPage() {
           <div className="divide-y">
             {checks.map(({ key, label, icon: Icon, required, set }) => (
               <div key={key} className="flex items-center gap-4 px-5 py-3.5">
-                <div className={`rounded-lg p-2 ${set ? "bg-emerald-50 text-emerald-600" : required ? "bg-red-50 text-red-500" : "bg-slate-50 text-slate-400"}`}>
+                <div className={`rounded-lg p-2 ${set ? "bg-emerald-50 text-emerald-600" : required ? "bg-red-50 text-red-500" : "bg-muted/60 text-slate-400"}`}>
                   <Icon className="h-4 w-4" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-800">{label}</p>
+                  <p className="text-sm font-medium text-foreground">{label}</p>
                   <p className="text-xs text-muted-foreground font-mono">{key}</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {required && !set && <Badge variant="outline" className="text-xs text-orange-600 border-orange-200">Required</Badge>}
-                  <Badge variant="outline" className={`text-xs ${set ? "text-emerald-600 border-emerald-200 bg-emerald-50" : "text-slate-500"}`}>
+                  <Badge variant="outline" className={`text-xs ${set ? "text-emerald-600 border-emerald-200 bg-emerald-50" : "text-muted-foreground"}`}>
                     {set ? "Configured" : "Not set"}
                   </Badge>
                 </div>
@@ -70,7 +70,7 @@ export default async function AdminSettingsPage() {
           ].map(([label, value]) => (
             <div key={label} className="flex justify-between py-1 border-b last:border-0">
               <span className="text-muted-foreground">{label}</span>
-              <span className="font-medium text-slate-700">{value}</span>
+              <span className="font-medium text-foreground/90">{value}</span>
             </div>
           ))}
         </CardContent>

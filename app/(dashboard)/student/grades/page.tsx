@@ -43,7 +43,7 @@ export default async function StudentGradesPage() {
     <div className="space-y-6 animate-fade-in">
 
       <div>
-        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Trophy className="h-6 w-6 text-yellow-500" /> My Grades
         </h1>
         <p className="text-sm text-muted-foreground mt-0.5">
@@ -59,9 +59,9 @@ export default async function StudentGradesPage() {
         ].map(({ label, value, icon: Icon, color }) => (
           <Card key={label} className="shadow-sm">
             <CardContent className="pt-5 pb-4 flex items-center gap-3">
-              <div className={`rounded-xl p-2.5 bg-slate-50 ${color}`}><Icon className="h-5 w-5" /></div>
+              <div className={`rounded-xl p-2.5 bg-muted/60 ${color}`}><Icon className="h-5 w-5" /></div>
               <div>
-                <p className="text-2xl font-bold text-slate-800">{value}</p>
+                <p className="text-2xl font-bold text-foreground">{value}</p>
                 <p className="text-xs text-muted-foreground">{label}</p>
               </div>
             </CardContent>
@@ -73,7 +73,7 @@ export default async function StudentGradesPage() {
         <Card className="border-dashed">
           <CardContent className="py-16 flex flex-col items-center text-center gap-2">
             <Trophy className="h-10 w-10 text-slate-300" />
-            <p className="text-sm font-medium text-slate-600">No grades yet</p>
+            <p className="text-sm font-medium text-muted-foreground">No grades yet</p>
             <p className="text-xs text-muted-foreground">Submit assignments and wait for your lecturer to grade them.</p>
           </CardContent>
         </Card>
@@ -84,10 +84,10 @@ export default async function StudentGradesPage() {
             return (
               <Link key={g.id}
                 href={`/student/courses/${a.courseId}/assignments/${a.id}`}
-                className="flex items-center gap-4 rounded-xl border bg-white px-4 py-3.5 hover:shadow-md hover:border-blue-200 transition-all duration-200 group">
+                className="flex items-center gap-4 rounded-xl border bg-card px-4 py-3.5 hover:shadow-md hover:border-blue-200 transition-all duration-200 group">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-medium text-sm text-slate-800 truncate group-hover:text-blue-600 transition-colors">
+                    <p className="font-medium text-sm text-foreground truncate group-hover:text-blue-600 transition-colors">
                       {a.title}
                     </p>
                     <span className="text-xs text-muted-foreground">{a.course.code}</span>

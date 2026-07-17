@@ -70,7 +70,7 @@ export default async function LecturerAssignmentDetailPage({
           {assignment.course.code}
         </Link>
         <span>/</span>
-        <span className="text-slate-700 font-medium truncate">{assignment.title}</span>
+        <span className="text-foreground/90 font-medium truncate">{assignment.title}</span>
       </div>
 
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -83,7 +83,7 @@ export default async function LecturerAssignmentDetailPage({
               ? <Badge className="bg-emerald-500 hover:bg-emerald-600">Published</Badge>
               : <Badge variant="secondary">Draft</Badge>}
           </div>
-          <h1 className="text-2xl font-bold text-slate-800">{assignment.title}</h1>
+          <h1 className="text-2xl font-bold text-foreground">{assignment.title}</h1>
           <p className="text-sm text-muted-foreground mt-1 max-w-xl">{assignment.description}</p>
           <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5">
             <Clock className="h-3 w-3" /> Due {format(new Date(assignment.dueDate), "dd MMM yyyy, h:mm a")}
@@ -102,9 +102,9 @@ export default async function LecturerAssignmentDetailPage({
         ].map(({ label, value, icon: Icon, color }) => (
           <Card key={label} className="shadow-sm">
             <CardContent className="pt-4 pb-3 flex items-center gap-3">
-              <div className={`rounded-lg p-2 bg-slate-50 ${color}`}><Icon className="h-4 w-4" /></div>
+              <div className={`rounded-lg p-2 bg-muted/60 ${color}`}><Icon className="h-4 w-4" /></div>
               <div>
-                <p className="text-xl font-bold text-slate-800">{value}</p>
+                <p className="text-xl font-bold text-foreground">{value}</p>
                 <p className="text-xs text-muted-foreground">{label}</p>
               </div>
             </CardContent>

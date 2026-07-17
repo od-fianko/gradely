@@ -11,7 +11,7 @@ export function BottomNav({ role }: { role: string }) {
   const navItems: NavItem[] = navByRole[role] ?? [];
 
   return (
-    <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t bg-white pb-[env(safe-area-inset-bottom)]">
+    <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t bg-card pb-[env(safe-area-inset-bottom)]">
       <div className="flex">
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -25,7 +25,7 @@ export function BottomNav({ role }: { role: string }) {
               href={item.href}
               className={cn(
                 "flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium transition-colors",
-                isActive ? "text-primary" : "text-slate-400 hover:text-slate-600"
+                isActive ? "text-primary" : "text-slate-400 hover:text-muted-foreground"
               )}
             >
               <Icon className="h-5 w-5" />

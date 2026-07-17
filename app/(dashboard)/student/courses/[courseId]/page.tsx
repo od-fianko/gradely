@@ -61,7 +61,7 @@ export default async function StudentCourseDetailPage({
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Link href="/student/courses" className="hover:text-blue-600 transition-colors">Courses</Link>
         <span>/</span>
-        <span className="text-slate-700 font-medium">{course.code}</span>
+        <span className="text-foreground/90 font-medium">{course.code}</span>
       </div>
 
       <div>
@@ -70,7 +70,7 @@ export default async function StudentCourseDetailPage({
             {course.code}
           </Badge>
         </div>
-        <h1 className="text-2xl font-bold text-slate-800">{course.title}</h1>
+        <h1 className="text-2xl font-bold text-foreground">{course.title}</h1>
         {course.description && (
           <p className="text-sm text-muted-foreground mt-1 max-w-lg">{course.description}</p>
         )}
@@ -87,11 +87,11 @@ export default async function StudentCourseDetailPage({
         ].map(({ label, value, icon: Icon }) => (
           <Card key={label} className="shadow-sm">
             <CardContent className="pt-5 pb-4 flex items-center gap-3">
-              <div className="rounded-xl p-2.5 bg-slate-50 text-blue-500">
+              <div className="rounded-xl p-2.5 bg-muted/60 text-blue-500">
                 <Icon className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-slate-800">{value}</p>
+                <p className="text-2xl font-bold text-foreground">{value}</p>
                 <p className="text-xs text-muted-foreground">{label}</p>
               </div>
             </CardContent>
@@ -100,7 +100,7 @@ export default async function StudentCourseDetailPage({
       </div>
 
       <div className="space-y-2">
-        <h2 className="text-lg font-semibold text-slate-800">Assignments</h2>
+        <h2 className="text-lg font-semibold text-foreground">Assignments</h2>
         {assignmentsWithGrade.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center justify-center py-10 text-center">

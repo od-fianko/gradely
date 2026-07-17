@@ -50,7 +50,7 @@ export default async function LecturerAnalyticsPage() {
     <div className="space-y-6 animate-fade-in">
 
       <div>
-        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <BarChart3 className="h-6 w-6 text-blue-500" /> Analytics
         </h1>
         <p className="text-sm text-muted-foreground mt-0.5">
@@ -70,7 +70,7 @@ export default async function LecturerAnalyticsPage() {
             <CardContent className="pt-5 pb-4 flex items-center gap-3">
               <div className={`rounded-xl p-2.5 ${bg} ${color}`}><Icon className="h-5 w-5" /></div>
               <div>
-                <p className="text-2xl font-bold text-slate-800">{value}</p>
+                <p className="text-2xl font-bold text-foreground">{value}</p>
                 <p className="text-xs text-muted-foreground">{label}</p>
               </div>
             </CardContent>
@@ -95,21 +95,21 @@ export default async function LecturerAnalyticsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
                       <span className="font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{c.code}</span>
-                      <p className="text-sm font-semibold text-slate-800 truncate">{c.title}</p>
+                      <p className="text-sm font-semibold text-foreground truncate">{c.title}</p>
                     </div>
                     <p className="text-xs text-muted-foreground">{c.semester}</p>
                   </div>
                   <div className="flex items-center gap-6 text-sm shrink-0">
                     <div className="text-center">
-                      <p className="font-bold text-slate-700">{c._count.enrollments}</p>
+                      <p className="font-bold text-foreground/90">{c._count.enrollments}</p>
                       <p className="text-xs text-muted-foreground">Students</p>
                     </div>
                     <div className="text-center">
-                      <p className="font-bold text-slate-700">{c._count.assignments}</p>
+                      <p className="font-bold text-foreground/90">{c._count.assignments}</p>
                       <p className="text-xs text-muted-foreground">Assignments</p>
                     </div>
                     <div className="text-center">
-                      <p className="font-bold text-slate-700">{c.subs}</p>
+                      <p className="font-bold text-foreground/90">{c.subs}</p>
                       <p className="text-xs text-muted-foreground">Submissions</p>
                     </div>
                     <div className="text-center">
@@ -120,7 +120,7 @@ export default async function LecturerAnalyticsPage() {
                   {/* Progress bar */}
                   {c.avg !== null && (
                     <div className="w-full mt-1">
-                      <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                         <div className={`h-full rounded-full transition-all ${c.avg >= 70 ? "bg-emerald-500" : c.avg >= 50 ? "bg-amber-500" : "bg-red-500"}`}
                           style={{ width: `${c.avg}%` }} />
                       </div>
@@ -153,13 +153,13 @@ export default async function LecturerAnalyticsPage() {
                   return (
                     <div key={a.id} className="px-5 py-3 flex items-center justify-between gap-4 flex-wrap">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-800 truncate">{a.title}</p>
+                        <p className="text-sm font-medium text-foreground truncate">{a.title}</p>
                         <p className="text-xs text-muted-foreground">{a.type.replace("_", " ")}</p>
                       </div>
                       <div className="flex items-center gap-4 text-xs shrink-0">
-                        <span className="text-slate-600">{submitted} submitted</span>
-                        <span className="text-slate-600">{graded} graded</span>
-                        <Badge variant="outline" className={`${avg !== null && avg >= 70 ? "text-emerald-600 border-emerald-200 bg-emerald-50" : avg !== null && avg >= 50 ? "text-amber-600 border-amber-200 bg-amber-50" : "text-slate-500"}`}>
+                        <span className="text-muted-foreground">{submitted} submitted</span>
+                        <span className="text-muted-foreground">{graded} graded</span>
+                        <Badge variant="outline" className={`${avg !== null && avg >= 70 ? "text-emerald-600 border-emerald-200 bg-emerald-50" : avg !== null && avg >= 50 ? "text-amber-600 border-amber-200 bg-amber-50" : "text-muted-foreground"}`}>
                           {avg !== null ? `${avg}% avg` : "No grades"}
                         </Badge>
                       </div>

@@ -27,7 +27,7 @@ export function GradeCard({ grade }: Props) {
             <Award className="h-6 w-6 text-emerald-600" />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-semibold text-slate-700 mb-0.5">Your grade</p>
+            <p className="text-sm font-semibold text-foreground/90 mb-0.5">Your grade</p>
             <p className={`text-3xl font-bold ${scoreColor(grade.percentage)}`}>
               {grade.percentage.toFixed(0)}%
               <span className="text-base font-normal text-muted-foreground ml-2">
@@ -41,7 +41,7 @@ export function GradeCard({ grade }: Props) {
               />
             </div>
             {grade.feedback && (
-              <p className="mt-3 text-sm text-slate-600 border-t border-emerald-200 pt-3">
+              <p className="mt-3 text-sm text-muted-foreground border-t border-emerald-200 pt-3">
                 <span className="font-medium">Feedback: </span>{grade.feedback}
               </p>
             )}
