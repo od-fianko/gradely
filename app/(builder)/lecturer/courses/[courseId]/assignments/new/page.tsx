@@ -32,6 +32,12 @@ export default async function NewAssignmentPage({
       courseCode={course.code}
       courseTitle={course.title}
       lecturerCourses={lecturerCourses}
+      user={{
+        name:  session.user.name  ?? "User",
+        email: session.user.email ?? "",
+        role:  session.user.role  ?? "LECTURER",
+        image: session.user.image ?? null,
+      }}
     />
   );
 }

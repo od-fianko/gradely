@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { BuilderSidebar, type BuilderCourse } from "./builder-sidebar";
+import { Sidebar, type SidebarUser, type SidebarCourse } from "@/components/layout/sidebar";
 
 const schema = z.object({
   title:        z.string().min(3, "Title must be at least 3 characters"),
@@ -69,10 +69,11 @@ interface Props {
   courseId:        string;
   courseCode:      string;
   courseTitle:     string;
-  lecturerCourses: BuilderCourse[];
+  lecturerCourses: SidebarCourse[];
+  user:            SidebarUser;
 }
 
-export function CreateAssignmentForm({ courseId, courseCode, courseTitle, lecturerCourses }: Props) {
+export function CreateAssignmentForm({ courseId, courseCode, courseTitle, lecturerCourses, user }: Props) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -427,7 +428,7 @@ export function CreateAssignmentForm({ courseId, courseCode, courseTitle, lectur
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="h-screen w-screen flex overflow-hidden bg-background">
 
-        <BuilderSidebar activeCourseId={courseId} courses={lecturerCourses} />
+        <Sidebar user={user} courses={lecturerCourses} />
 
         <div className="flex-1 flex flex-col overflow-hidden">
 
