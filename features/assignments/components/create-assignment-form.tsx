@@ -4,9 +4,11 @@ import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Loader2, Plus, Trash2, CheckSquare, Code2, Sparkles, FileText, Upload,
   Search, Copy, Eye, EyeOff, ArrowRight, Lightbulb, X, Wand2,
+  Rocket, ChevronDown, SlidersHorizontal, FolderArchive, Inbox,
 } from "lucide-react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -18,8 +20,15 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger,
+} from "@/components/ui/sheet";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { BuilderSidebar, type BuilderCourse } from "./builder-sidebar";
 
 const schema = z.object({
   title:        z.string().min(3, "Title must be at least 3 characters"),
@@ -56,9 +65,17 @@ const TYPE_LABELS: Record<string, string> = {
 };
 // THEORY_SET and OTHER are UI-level choices; both resolve to real DB types.
 
-export function CreateAssignmentForm({ courseId }: { courseId: string }) {
+interface Props {
+  courseId:        string;
+  courseCode:      string;
+  courseTitle:     string;
+  lecturerCourses: BuilderCourse[];
+}
+
+export function CreateAssignmentForm({ courseId, courseCode, courseTitle, lecturerCourses }: Props) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   // Quiz state
   const [questions,      setQuestions]      = useState<QuizQuestion[]>([defaultQuestion()]);
@@ -401,99 +418,165 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
 
   const isLoading = form.formState.isSubmitting;
 
+  const pillClass = (active: boolean) =>
+    `px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${
+      active ? "bg-card shadow-sm" : "text-muted-foreground hover:bg-card"
+    }`;
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="h-screen w-screen flex overflow-hidden bg-background">
 
-        {error && (
-          <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
-        )}
+        <BuilderSidebar activeCourseId={courseId} courses={lecturerCourses} />
 
-        <input ref={slidesInputRef} type="file" className="hidden"
-          accept=".pdf,.pptx,.jpg,.jpeg,.png,.webp" onChange={handleSlidesSelected} />
+        <div className="flex-1 flex flex-col overflow-hidden">
 
-        {/* Basic details */}
-        <Card>
-          <CardHeader><CardTitle className="text-base">Basic details</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <FormField control={form.control} name="type" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Assignment type</FormLabel>
-                <Select onValueChange={handleTypeChange} value={uiType}>
-                  <FormControl>
-                    <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {Object.entries(TYPE_LABELS).map(([v, l]) => (
-                      <SelectItem key={v} value={v}>{l}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
+          {/* Top bar */}
+          <header className="h-16 shrink-0 border-b flex items-center gap-3 px-4 bg-card">
+            <Link href={`/lecturer/courses/${courseId}`}
+              className="text-sm text-muted-foreground hover:text-red-600 transition-colors shrink-0">
+              ← Exit
+            </Link>
+            <span className="text-border shrink-0">|</span>
 
-            <FormField control={form.control} name="title" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Title</FormLabel>
-                <FormControl>
-                  <Input placeholder="e.g. Week 4 Quiz: Data Structures" disabled={isLoading} {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-
-            <FormField control={form.control} name="description" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Description / Instructions</FormLabel>
-                <FormControl>
-                  <Textarea rows={4} placeholder="Explain what students should do…" disabled={isLoading} {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-          </CardContent>
-        </Card>
-
-        {/* Marks & deadline */}
-        <Card>
-          <CardHeader><CardTitle className="text-base">Marks & deadline</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <FormField control={form.control} name="totalMarks" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Total marks</FormLabel>
-                  <FormControl><Input type="number" min={1} disabled={isLoading} {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="passingMarks" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Passing marks <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
-                  <FormControl><Input type="number" min={0} disabled={isLoading} {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="timeLimitMinutes" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Time limit, min <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
-                  <FormControl><Input type="number" min={1} max={600} placeholder="e.g. 45" disabled={isLoading} {...field} value={field.value ?? ""} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
+            <FileText className="h-5 w-5 text-primary shrink-0" />
+            <div className="min-w-0">
+              <input
+                value={title}
+                onChange={(e) => form.setValue("title", e.target.value, { shouldValidate: true })}
+                placeholder="Untitled Assessment"
+                disabled={isLoading}
+                className="font-bold text-base bg-transparent border-none outline-none focus:ring-0 p-0 w-full truncate placeholder:text-muted-foreground placeholder:font-normal"
+              />
+              {form.formState.errors.title && (
+                <p className="text-[11px] text-red-600 -mt-0.5">{form.formState.errors.title.message}</p>
+              )}
             </div>
-            <FormField control={form.control} name="dueDate" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Due date & time</FormLabel>
-                <FormControl>
-                  <Input type="datetime-local" disabled={isLoading}
-                    min={new Date(Date.now() + 60_000).toISOString().slice(0, 16)} {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-          </CardContent>
-        </Card>
+
+            <div className="flex-1" />
+
+            {/* Type tabs */}
+            <div className="hidden lg:inline-flex rounded-lg border bg-muted/40 p-1 gap-1 shrink-0">
+              <button type="button" onClick={() => showQuiz ? addAndSelect("MCQ") : handleTypeChange("MULTIPLE_CHOICE")}
+                className={pillClass(showQuiz)}>
+                <CheckSquare className="h-3.5 w-3.5" /> MCQ
+              </button>
+              <button type="button" onClick={() => setUiType("OTHER")}
+                className={pillClass(showCustom)}>
+                <Wand2 className="h-3.5 w-3.5" /> Portmanteau
+              </button>
+              <button type="button" onClick={() => showQuiz ? addAndSelect("SHORT_TEXT") : handleTypeChange("THEORY_SET")}
+                className={pillClass(false)}>
+                <FileText className="h-3.5 w-3.5" /> Theory
+              </button>
+              <button type="button" onClick={switchToCode}
+                className={pillClass(showProgramming)}>
+                <Code2 className="h-3.5 w-3.5" /> Code
+              </button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button type="button" className={pillClass(showEssay || uiType === "FILE_UPLOAD")}>
+                    <SlidersHorizontal className="h-3.5 w-3.5" /> More <ChevronDown className="h-3 w-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleTypeChange("SHORT_ANSWER")}>Essay (single question)</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleTypeChange("FILE_UPLOAD")}>File Upload</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            {/* Details sheet */}
+            <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
+              <SheetTrigger asChild>
+                <Button type="button" variant="outline" size="sm" className="gap-1.5 shrink-0">
+                  <SlidersHorizontal className="h-3.5 w-3.5" /> Details
+                </Button>
+              </SheetTrigger>
+              <SheetContent className="overflow-y-auto">
+                <SheetHeader>
+                  <SheetTitle>Assessment details</SheetTitle>
+                  <SheetDescription>Description, marks, deadline, and timing.</SheetDescription>
+                </SheetHeader>
+                <div className="space-y-4 mt-4">
+                  <FormField control={form.control} name="description" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description / Instructions</FormLabel>
+                      <FormControl>
+                        <Textarea rows={4} placeholder="Explain what students should do…" disabled={isLoading} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="totalMarks" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Total marks</FormLabel>
+                        <FormControl><Input type="number" min={1} disabled={isLoading} {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="passingMarks" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Passing marks <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
+                        <FormControl><Input type="number" min={0} disabled={isLoading} {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+                  <FormField control={form.control} name="dueDate" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Due date & time</FormLabel>
+                      <FormControl>
+                        <Input type="datetime-local" disabled={isLoading}
+                          min={new Date(Date.now() + 60_000).toISOString().slice(0, 16)} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="timeLimitMinutes" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Time limit, min <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
+                      <FormControl><Input type="number" min={1} max={600} placeholder="e.g. 45" disabled={isLoading} {...field} value={field.value ?? ""} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+              </SheetContent>
+            </Sheet>
+
+            <Button asChild variant="outline" size="sm" className="gap-1.5 shrink-0">
+              <Link href={`/lecturer/courses/${courseId}`}><FolderArchive className="h-3.5 w-3.5" /> Drafts</Link>
+            </Button>
+
+            <Button type="submit" size="sm" disabled={isLoading} className="gap-1.5 shrink-0">
+              {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Rocket className="h-3.5 w-3.5" />}
+              Start Exam
+            </Button>
+          </header>
+
+          {error && (
+            <p className="text-sm text-red-600 bg-red-50 border-b border-red-200 px-4 py-2 shrink-0">{error}</p>
+          )}
+
+          <input ref={slidesInputRef} type="file" className="hidden"
+            accept=".pdf,.pptx,.jpg,.jpeg,.png,.webp" onChange={handleSlidesSelected} />
+
+          <main className="flex-1 overflow-y-auto p-5 space-y-4">
+            <p className="text-xs text-muted-foreground">{courseCode} · {courseTitle}</p>
+
+            {/* Mobile fallback: the tab pills are desktop-only */}
+            <div className="lg:hidden">
+              <Select onValueChange={handleTypeChange} value={uiType}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select type" /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(TYPE_LABELS).map(([v, l]) => (
+                    <SelectItem key={v} value={v}>{l}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
         {/* ── CUSTOM: describe the whole assignment to the AI ───────────────── */}
         {showCustom && (
@@ -599,33 +682,6 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
         {/* ── MULTIPLE CHOICE / THEORY: assessment builder workspace ─────────── */}
         {showQuiz && (
           <div className="space-y-3">
-
-            {/* Quick-add pills */}
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-2 min-w-0">
-                <FileText className="h-5 w-5 text-primary shrink-0" />
-                <span className="font-semibold truncate">{title || "Untitled Assessment"}</span>
-              </div>
-              <div className="inline-flex rounded-lg border bg-muted/40 p-1 gap-1 flex-wrap">
-                <button type="button" onClick={() => addAndSelect("MCQ")}
-                  className="px-3 py-1.5 rounded-md text-xs font-medium bg-card shadow-sm flex items-center gap-1.5">
-                  <CheckSquare className="h-3.5 w-3.5" /> MCQ
-                </button>
-                <button type="button" onClick={() => setUiType("OTHER")}
-                  className="px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:bg-card flex items-center gap-1.5">
-                  <Wand2 className="h-3.5 w-3.5" /> Portmanteau
-                </button>
-                <button type="button" onClick={() => addAndSelect("SHORT_TEXT")}
-                  className="px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:bg-card flex items-center gap-1.5">
-                  <FileText className="h-3.5 w-3.5" /> Theory
-                </button>
-                <button type="button" onClick={switchToCode}
-                  className="px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:bg-card flex items-center gap-1.5">
-                  <Code2 className="h-3.5 w-3.5" /> Code
-                </button>
-              </div>
-            </div>
-
             <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr_300px] rounded-xl border overflow-hidden bg-card">
 
               {/* LEFT — question list */}
@@ -990,11 +1046,26 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
           </Card>
         )}
 
-        <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
-          <Button type="submit" disabled={isLoading}>
-            {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating…</> : "Create Assignment"}
-          </Button>
+        {/* ── FILE UPLOAD: no extra setup needed ──────────────────────────────── */}
+        {uiType === "FILE_UPLOAD" && (
+          <Card className="border-emerald-100">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Inbox className="h-4 w-4 text-emerald-500" /> File Upload Assignment
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Students upload a PDF, DOCX, or ZIP file (max 10 MB) for you to grade manually.
+                No extra setup is needed here — set the description, marks, and deadline under{" "}
+                <button type="button" onClick={() => setDetailsOpen(true)} className="text-primary underline underline-offset-2">
+                  Details
+                </button>.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+          </main>
         </div>
       </form>
     </Form>
