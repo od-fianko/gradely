@@ -66,6 +66,7 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
   // Programming state
   const [testCases,    setTestCases]    = useState<TestCase[]>([defaultTestCase()]);
   const [starterCode,  setStarterCode]  = useState("");
+  const [difficulty,   setDifficulty]   = useState<"EASY" | "MEDIUM" | "HARD">("MEDIUM");
 
   // Generate-from-slides (shared across types)
   const slidesInputRef = useRef<HTMLInputElement>(null);
@@ -250,6 +251,7 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
       setUiType("MULTIPLE_CHOICE");
     } else if (d.type === "PROGRAMMING") {
       setStarterCode(d.starterCode ?? "");
+      if (d.difficulty === "EASY" || d.difficulty === "MEDIUM" || d.difficulty === "HARD") setDifficulty(d.difficulty);
       const generated: TestCase[] = (d.testCases ?? []).map((tc: TestCase) => ({
         title:          tc.title ?? "",
         input:          tc.input ?? "",
@@ -317,6 +319,7 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
       ...(data.type === "PROGRAMMING" && {
         programmingDetails: {
           starterCode: starterCode.trim() || null,
+          difficulty,
           testCases: testCases.map((tc) => ({
             title:          tc.title.trim() || null,
             input:          tc.input,
@@ -696,6 +699,29 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
                     ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Reading slides…</>
                     : <><Upload className="h-3.5 w-3.5" />Exercise + Tests from Slides</>}
                 </Button>
+              </div>
+
+              {/* Difficulty */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Difficulty</label>
+                <div className="flex gap-2 mt-1.5">
+                  {(["EASY", "MEDIUM", "HARD"] as const).map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setDifficulty(d)}
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium capitalize border transition-colors ${
+                        difficulty === d
+                          ? d === "EASY" ? "bg-emerald-50 border-emerald-300 text-emerald-700"
+                          : d === "MEDIUM" ? "bg-amber-50 border-amber-300 text-amber-700"
+                          : "bg-red-50 border-red-300 text-red-700"
+                          : "border-border text-muted-foreground hover:bg-muted/60"
+                      }`}
+                    >
+                      {d.toLowerCase()}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Starter code */}

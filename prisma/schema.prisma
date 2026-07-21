@@ -56,6 +56,12 @@ enum QuestionKind {
   SHORT_TEXT // theory / written answer — lecturer grades (AI-assisted)
 }
 
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
 // ── USER ──────────────────────────────────────────────────────────────────────
 
 model User {
@@ -221,6 +227,7 @@ model ProgrammingAssignment {
   timeLimit   Int                 @default(5)   // seconds
   memoryLimit Int                 @default(128) // MB
   rubric      String?             @db.Text
+  difficulty  Difficulty          @default(MEDIUM)
 
   assignmentId String     @unique
   assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)

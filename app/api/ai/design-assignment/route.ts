@@ -62,6 +62,7 @@ For PROGRAMMING:
   "type": "PROGRAMMING",
   "title": "...",
   "description": "problem statement for students",
+  "difficulty": "EASY" | "MEDIUM" | "HARD",
   "starterCode": "python starter template or empty string",
   "testCases": [ { "title": "...", "input": "stdin", "expectedOutput": "stdout", "points": 5, "isHidden": false } ]
 }

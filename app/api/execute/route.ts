@@ -37,13 +37,13 @@ export async function POST(req: Request) {
     const testCases  = submission.assignment.programmingDetails?.testCases ?? [];
     const pistonLang = LANG_MAP[language] ?? LANG_MAP.PYTHON;
 
-    // Ensure a CodeSubmission record exists so we can store TestResults
-    const codeSubmission = submission.codeSubmission
-      ?? await prisma.codeSubmission.upsert({
-           where:  { submissionId },
-           update: { code, language },
-           create: { submissionId, code, language },
-         });
+    // Upsert the CodeSubmission record so both its code and TestResults stay
+    // current on every run (a previous version only wrote code on first run).
+    const codeSubmission = await prisma.codeSubmission.upsert({
+      where:  { submissionId },
+      update: { code, language },
+      create: { submissionId, code, language },
+    });
 
     const results = await Promise.all(
       testCases.map(async (tc) => {

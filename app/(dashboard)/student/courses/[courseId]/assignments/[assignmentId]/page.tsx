@@ -4,8 +4,9 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { format, isPast } from "date-fns";
-import { Clock, Award } from "lucide-react";
+import { Clock, Award, Code2, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { SubmissionForm } from "@/features/assignments/components/submission-form";
 import { StartAttempt } from "@/features/assignments/components/start-attempt";
@@ -117,7 +118,27 @@ export default async function StudentAssignmentDetailPage({
       )}
 
       {canSubmit ? (
-        needsStart ? (
+        assignment.type === "PROGRAMMING" ? (
+          <Card className="border-primary/20">
+            <CardContent className="py-10 flex flex-col items-center text-center gap-3">
+              <div className="rounded-full bg-primary/10 p-3">
+                <Code2 className="h-7 w-7 text-primary" />
+              </div>
+              <p className="font-semibold text-lg">
+                {existing ? "Continue your attempt" : "Ready to start coding?"}
+              </p>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                This opens a dedicated coding workspace with an editor, test runner, and an AI tutor
+                that gives hints — not answers.
+              </p>
+              <Button asChild size="lg" className="mt-2 gap-2">
+                <Link href={`/attempt/${assignment.id}`}>
+                  {existing ? "Resume Workspace" : "Open Coding Workspace"} <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ) : needsStart ? (
           <StartAttempt assignmentId={assignment.id} minutes={assignment.timeLimitMinutes!} />
         ) : (
         <SubmissionForm
