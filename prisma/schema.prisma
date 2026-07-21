@@ -275,6 +275,7 @@ model QuizQuestion {
   order        Int          @default(0)
   isMultiple   Boolean      @default(false) // true = select many
   kind         QuestionKind @default(MCQ)
+  difficulty   Difficulty   @default(MEDIUM)
   sampleAnswer String?      @db.Text // model answer for SHORT_TEXT (guides AI/lecturer grading)
 
   quizId  String

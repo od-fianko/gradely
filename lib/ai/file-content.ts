@@ -43,12 +43,13 @@ async function extractPptxText(buffer: Buffer): Promise<string> {
 }
 
 /**
- * Converts an uploaded slides file (PDF / PPTX / image) plus a prompt into
- * Claude message content blocks. PDFs and images use Claude's native document
- * and vision support; PPTX text is extracted in-process (serverless-safe).
+ * Converts an uploaded file (PDF / PPTX / image) into Claude content blocks
+ * with NO trailing prompt — the caller composes one or more of these plus a
+ * final instructions block, which is what lets multiple source files be
+ * combined into a single generation request.
  * Throws Error("UNSUPPORTED_FILE") / Error("NO_SLIDES") / Error("FILE_TOO_LARGE").
  */
-export async function fileToContentBlocks(file: File, prompt: string): Promise<Anthropic.MessageParam["content"]> {
+export async function fileToRawBlocks(file: File): Promise<Anthropic.ContentBlockParam[]> {
   if (file.size > MAX_UPLOAD_MB * 1024 * 1024) throw new Error("FILE_TOO_LARGE");
   const buffer = Buffer.from(await file.arrayBuffer());
   const name = file.name.toLowerCase();
@@ -56,18 +57,22 @@ export async function fileToContentBlocks(file: File, prompt: string): Promise<A
   if (file.type === "application/pdf" || name.endsWith(".pdf")) {
     return [
       { type: "document", source: { type: "base64", media_type: "application/pdf", data: buffer.toString("base64") } },
-      { type: "text", text: prompt },
     ];
   }
   if (IMAGE_MIMES.has(file.type)) {
     return [
       { type: "image", source: { type: "base64", media_type: file.type as "image/jpeg" | "image/png" | "image/webp", data: buffer.toString("base64") } },
-      { type: "text", text: prompt },
     ];
   }
   if (file.type === PPTX_MIME || name.endsWith(".pptx")) {
     const slideText = await extractPptxText(buffer);
-    return [{ type: "text", text: `Extracted slide content:\n\n${slideText}\n\n${prompt}` }];
+    return [{ type: "text", text: `Slide deck "${file.name}":\n\n${slideText}` }];
   }
   throw new Error("UNSUPPORTED_FILE");
+}
+
+/** Single-file convenience wrapper: file content blocks followed by a prompt block. */
+export async function fileToContentBlocks(file: File, prompt: string): Promise<Anthropic.ContentBlockParam[]> {
+  const blocks = await fileToRawBlocks(file);
+  return [...blocks, { type: "text", text: prompt }];
 }

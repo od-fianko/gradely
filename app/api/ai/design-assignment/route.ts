@@ -51,9 +51,9 @@ For MULTIPLE_CHOICE:
   "title": "short assignment title",
   "description": "instructions shown to students",
   "questions": [
-    { "kind": "MCQ", "text": "...", "points": 2, "isMultiple": false,
+    { "kind": "MCQ", "text": "...", "points": 2, "difficulty": "EASY", "isMultiple": false,
       "options": [ {"text":"...","isCorrect":false}, {"text":"...","isCorrect":true}, {"text":"...","isCorrect":false}, {"text":"...","isCorrect":false} ] },
-    { "kind": "SHORT_TEXT", "text": "Explain...", "points": 10, "isMultiple": false, "options": [], "sampleAnswer": "A full-marks answer covers..." }
+    { "kind": "SHORT_TEXT", "text": "Explain...", "points": 10, "difficulty": "HARD", "isMultiple": false, "options": [], "sampleAnswer": "A full-marks answer covers..." }
   ]
 }
 
@@ -75,7 +75,7 @@ For SHORT_ANSWER:
   "rubric": "3-5 bullet grading rubric"
 }`;
 
-    let content: Anthropic.MessageParam["content"] = [{ type: "text", text: prompt }];
+    let content: Anthropic.ContentBlockParam[] = [{ type: "text", text: prompt }];
     if (file) {
       try {
         content = await fileToContentBlocks(file, prompt);

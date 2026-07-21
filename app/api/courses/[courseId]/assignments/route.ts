@@ -70,6 +70,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ courseI
                   points: q.points ?? 1,
                   isMultiple: q.isMultiple ?? false,
                   kind: q.kind === "SHORT_TEXT" ? "SHORT_TEXT" : "MCQ",
+                  difficulty: ["EASY", "MEDIUM", "HARD"].includes(q.difficulty) ? q.difficulty : "MEDIUM",
                   sampleAnswer: typeof q.sampleAnswer === "string" && q.sampleAnswer.trim() ? q.sampleAnswer : null,
                   order: qi,
                   options: {

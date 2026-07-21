@@ -4,7 +4,10 @@ import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Trash2, CheckSquare, Code2, Sparkles, FileText, Upload } from "lucide-react";
+import {
+  Loader2, Plus, Trash2, CheckSquare, Code2, Sparkles, FileText, Upload,
+  Search, Copy, Eye, EyeOff, ArrowRight, Lightbulb, X, Wand2,
+} from "lucide-react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,11 +36,14 @@ type Schema = z.infer<typeof schema>;
 
 interface QuizOption   { text: string; isCorrect: boolean }
 type QuestionKind = "MCQ" | "SHORT_TEXT";
-interface QuizQuestion { text: string; points: number; kind: QuestionKind; sampleAnswer: string; options: QuizOption[] }
+type QDifficulty  = "EASY" | "MEDIUM" | "HARD";
+interface QuizQuestion { text: string; points: number; kind: QuestionKind; difficulty: QDifficulty; sampleAnswer: string; options: QuizOption[] }
 interface TestCase     { title: string; input: string; expectedOutput: string; points: number; isHidden: boolean }
 
+const DIFFICULTY_LABEL: Record<QDifficulty, string> = { EASY: "Beginner", MEDIUM: "Intermediate", HARD: "Advanced" };
+
 const defaultOption   = (): QuizOption   => ({ text: "", isCorrect: false });
-const defaultQuestion = (kind: QuestionKind = "MCQ"): QuizQuestion => ({ text: "", points: kind === "MCQ" ? 1 : 5, kind, sampleAnswer: "", options: kind === "MCQ" ? [defaultOption(), defaultOption()] : [] });
+const defaultQuestion = (kind: QuestionKind = "MCQ"): QuizQuestion => ({ text: "", points: kind === "MCQ" ? 1 : 5, kind, difficulty: "MEDIUM", sampleAnswer: "", options: kind === "MCQ" ? [defaultOption(), defaultOption()] : [] });
 const defaultTestCase = (): TestCase     => ({ title: "", input: "", expectedOutput: "", points: 1, isHidden: false });
 
 const TYPE_LABELS: Record<string, string> = {
@@ -58,6 +64,12 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
   const [questions,      setQuestions]      = useState<QuizQuestion[]>([defaultQuestion()]);
   const [aiInstructions, setAiInstructions] = useState("");
   const [aiQLoading,     setAiQLoading]     = useState(false);
+  const [activeQ,        setActiveQ]        = useState(0);
+  const [quizSearch,     setQuizSearch]     = useState("");
+  const [previewOpen,    setPreviewOpen]    = useState(false);
+  const [sourceFiles,    setSourceFiles]    = useState<File[]>([]);
+  const quizFilesRef = useRef<HTMLInputElement>(null);
+  const [suggestion,  setSuggestion]  = useState<string | null>(null);
 
   // Short answer state
   const [rubric,       setRubric]       = useState("");
@@ -107,15 +119,49 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
   const showProgramming = uiType === "PROGRAMMING";
   const showCustom      = uiType === "OTHER";
 
+  const safeActiveQ   = Math.min(activeQ, questions.length - 1);
+  const activeQuestion = questions[safeActiveQ] as QuizQuestion | undefined;
+
   // ── Quiz helpers ──────────────────────────────────────────────────────────────
 
   const addQuestion    = (kind: QuestionKind = "MCQ") => setQuestions((q) => [...q, defaultQuestion(kind)]);
+
+  const addAndSelect = (kind: QuestionKind) => {
+    setActiveQ(questions.length);
+    addQuestion(kind);
+  };
+
+  const duplicateQuestion = (i: number) => {
+    setQuestions((q) => {
+      const copy = { ...q[i], options: q[i].options.map((o) => ({ ...o })) };
+      return [...q.slice(0, i + 1), copy, ...q.slice(i + 1)];
+    });
+    setActiveQ(i + 1);
+  };
 
   const setQuestionKind = (i: number, kind: QuestionKind) =>
     setQuestions((q) => q.map((qs, idx) => idx === i
       ? { ...qs, kind, options: kind === "MCQ" && qs.options.length === 0 ? [defaultOption(), defaultOption()] : qs.options }
       : qs));
   const removeQuestion = (i: number) => setQuestions((q) => q.filter((_, idx) => idx !== i));
+  const removeQuestionSafe = (i: number) => {
+    if (questions.length <= 1) return;
+    removeQuestion(i);
+    setActiveQ((a) => Math.max(0, Math.min(a, questions.length - 2)));
+  };
+
+  const handleAddSourceFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    setSourceFiles((prev) => [...prev, ...picked].slice(0, 3));
+  };
+  const removeSourceFile = (i: number) => setSourceFiles((prev) => prev.filter((_, idx) => idx !== i));
+
+  const switchToCode = () => {
+    if (questions.some((q) => q.text.trim()) &&
+        !window.confirm("Switch to a Programming assignment? Your quiz questions won't carry over.")) return;
+    handleTypeChange("PROGRAMMING");
+  };
 
   const updateQuestion = (i: number, field: keyof Omit<QuizQuestion, "options">, value: string | number) =>
     setQuestions((q) => q.map((qs, idx) => idx === i ? { ...qs, [field]: value } : qs));
@@ -130,14 +176,18 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
 
   // ── AI: generate quiz questions ───────────────────────────────────────────────
 
-  const generateQuestions = async () => {
-    if (!aiInstructions.trim()) { setError("Tell the AI what you want — e.g. \"6 hard questions on AVL rotations and 2 easy ones on BST basics\""); return; }
-    setAiQLoading(true); setError(null);
-    const res  = await fetch("/api/ai/generate-questions", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ instructions: aiInstructions, description, totalMarks }),
-    });
+  const generateQuestions = async (overrideText?: string) => {
+    const text = (overrideText ?? aiInstructions).trim();
+    if (!text) { setError("Tell the AI what you want — e.g. \"6 hard questions on AVL rotations and 2 easy ones on BST basics\""); return; }
+    setAiQLoading(true); setError(null); setSuggestion(null);
+
+    const formData = new FormData();
+    formData.append("instructions", text);
+    formData.append("description", description);
+    formData.append("totalMarks", String(totalMarks));
+    sourceFiles.forEach((f) => formData.append("files", f));
+
+    const res  = await fetch("/api/ai/generate-questions", { method: "POST", body: formData });
     const json = await res.json();
     setAiQLoading(false);
     if (!res.ok) { setError(json.error ?? "AI generation failed"); return; }
@@ -145,10 +195,14 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
       text:         q.text,
       points:       q.points ?? 1,
       kind:         q.kind === "SHORT_TEXT" ? "SHORT_TEXT" : "MCQ",
+      difficulty:   ["EASY", "MEDIUM", "HARD"].includes(q.difficulty) ? q.difficulty : "MEDIUM",
       sampleAnswer: q.sampleAnswer ?? "",
       options:      (q.options ?? []).map((o: QuizOption) => ({ text: o.text, isCorrect: o.isCorrect })),
     }));
-    if (generated.length) setQuestions(generated);
+    if (generated.length) { setQuestions(generated); setActiveQ(0); }
+    if (typeof json.data.suggestion === "string" && json.data.suggestion.trim()) {
+      setSuggestion(json.data.suggestion.trim());
+    }
   };
 
   // ── AI: generate rubric ───────────────────────────────────────────────────────
@@ -195,10 +249,11 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
         text:         q.text,
         points:       q.points ?? 1,
         kind:         q.kind === "SHORT_TEXT" ? "SHORT_TEXT" : "MCQ",
+        difficulty:   ["EASY", "MEDIUM", "HARD"].includes(q.difficulty) ? q.difficulty : "MEDIUM",
         sampleAnswer: q.sampleAnswer ?? "",
         options:      (q.options ?? []).map((o: QuizOption) => ({ text: o.text, isCorrect: o.isCorrect })),
       }));
-      if (generated.length) setQuestions(generated);
+      if (generated.length) { setQuestions(generated); setActiveQ(0); }
     } else if (selectedType === "SHORT_ANSWER") {
       setRubric(json.data.rubric ?? "");
       if (!title.trim())       form.setValue("title", json.data.suggestedTitle ?? "");
@@ -244,10 +299,11 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
         text:         q.text,
         points:       q.points ?? 1,
         kind:         q.kind === "SHORT_TEXT" ? "SHORT_TEXT" : "MCQ",
+        difficulty:   ["EASY", "MEDIUM", "HARD"].includes(q.difficulty) ? q.difficulty : "MEDIUM",
         sampleAnswer: q.sampleAnswer ?? "",
         options:      (q.options ?? []).map((o: QuizOption) => ({ text: o.text, isCorrect: o.isCorrect })),
       }));
-      if (generated.length) setQuestions(generated);
+      if (generated.length) { setQuestions(generated); setActiveQ(0); }
       setUiType("MULTIPLE_CHOICE");
     } else if (d.type === "PROGRAMMING") {
       setStarterCode(d.starterCode ?? "");
@@ -310,6 +366,7 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
             text:         q.text.trim(),
             points:       Number(q.points),
             kind:         q.kind,
+            difficulty:   q.difficulty,
             sampleAnswer: q.sampleAnswer.trim() || null,
             isMultiple:   q.kind === "MCQ" && q.options.filter((o) => o.isCorrect).length > 1,
             options:      q.kind === "MCQ" ? q.options.map((o) => ({ text: o.text.trim(), isCorrect: o.isCorrect })) : [],
@@ -539,133 +596,273 @@ export function CreateAssignmentForm({ courseId }: { courseId: string }) {
           </Card>
         )}
 
-        {/* ── MULTIPLE CHOICE: question builder ─────────────────────────────── */}
+        {/* ── MULTIPLE CHOICE / THEORY: assessment builder workspace ─────────── */}
         {showQuiz && (
-          <Card className="border-blue-100">
-            <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
-              <CardTitle className="text-base flex items-center gap-2">
-                <CheckSquare className="h-4 w-4 text-blue-500" /> Questions
-                <span className="text-xs font-normal text-muted-foreground">MCQ, theory, or a mix</span>
-              </CardTitle>
-              <div className="flex items-center gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => addQuestion("MCQ")} className="gap-1.5 h-8 text-xs">
-                  <Plus className="h-3 w-3" /> MCQ
-                </Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => addQuestion("SHORT_TEXT")} className="gap-1.5 h-8 text-xs">
-                  <Plus className="h-3 w-3" /> Theory
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-5">
+          <div className="space-y-3">
 
-              {/* AI Assistant */}
-              <div className="rounded-lg border bg-muted/40 p-4 space-y-3">
-                <p className="text-sm font-medium flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-primary" /> AI Assistant
-                </p>
-                <Textarea
-                  rows={3}
-                  className="bg-card text-sm"
-                  placeholder='Describe what you want in your own words — e.g. "Generate 6 questions on binary trees: 2 easy, 3 medium, 1 very hard on AVL rotations. Worth 5 marks each."'
-                  value={aiInstructions}
-                  onChange={(e) => setAiInstructions(e.target.value)}
-                />
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Button type="button" size="sm" onClick={generateQuestions} disabled={aiQLoading} className="gap-1.5">
-                    {aiQLoading
-                      ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Generating…</>
-                      : <><Sparkles className="h-3.5 w-3.5" />Generate Questions</>}
-                  </Button>
-                  <Button type="button" size="sm" variant="outline"
-                    onClick={triggerSlidesUpload} disabled={slidesLoading} className="gap-1.5">
-                    {slidesLoading
-                      ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Reading slides…</>
-                      : <><Upload className="h-3.5 w-3.5" />From Slides (PDF/PPTX)</>}
-                  </Button>
-                  <span className="text-xs text-muted-foreground">Your instructions apply to both.</span>
+            {/* Quick-add pills */}
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2 min-w-0">
+                <FileText className="h-5 w-5 text-primary shrink-0" />
+                <span className="font-semibold truncate">{title || "Untitled Assessment"}</span>
+              </div>
+              <div className="inline-flex rounded-lg border bg-muted/40 p-1 gap-1 flex-wrap">
+                <button type="button" onClick={() => addAndSelect("MCQ")}
+                  className="px-3 py-1.5 rounded-md text-xs font-medium bg-card shadow-sm flex items-center gap-1.5">
+                  <CheckSquare className="h-3.5 w-3.5" /> MCQ
+                </button>
+                <button type="button" onClick={() => setUiType("OTHER")}
+                  className="px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:bg-card flex items-center gap-1.5">
+                  <Wand2 className="h-3.5 w-3.5" /> Portmanteau
+                </button>
+                <button type="button" onClick={() => addAndSelect("SHORT_TEXT")}
+                  className="px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:bg-card flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5" /> Theory
+                </button>
+                <button type="button" onClick={switchToCode}
+                  className="px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:bg-card flex items-center gap-1.5">
+                  <Code2 className="h-3.5 w-3.5" /> Code
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr_300px] rounded-xl border overflow-hidden bg-card">
+
+              {/* LEFT — question list */}
+              <div className="border-b lg:border-b-0 lg:border-r bg-muted/20 flex flex-col lg:max-h-[560px]">
+                <div className="p-3 border-b">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input value={quizSearch} onChange={(e) => setQuizSearch(e.target.value)}
+                      placeholder="Search questions…" className="pl-8 h-9 text-sm" />
+                  </div>
+                </div>
+                <div className="flex-1 overflow-y-auto p-2 space-y-1.5 max-h-72 lg:max-h-none">
+                  {questions.map((q, qi) => {
+                    if (quizSearch.trim() && !q.text.toLowerCase().includes(quizSearch.trim().toLowerCase())) return null;
+                    const selected = qi === safeActiveQ;
+                    return (
+                      <button key={qi} type="button" onClick={() => setActiveQ(qi)}
+                        className={`w-full text-left rounded-lg border p-2.5 transition-colors ${selected ? "border-primary bg-primary/5" : "border-transparent hover:bg-muted/60"}`}>
+                        <p className="text-[10px] font-semibold text-muted-foreground tracking-wide">QUESTION {String(qi + 1).padStart(2, "0")}</p>
+                        <p className="text-sm font-medium line-clamp-2 mt-0.5">{q.text.trim() || "Untitled question"}</p>
+                        <div className="flex items-center justify-between mt-1.5">
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">{q.kind === "MCQ" ? "MCQ" : "THEORY"}</Badge>
+                          <span className="text-[10px] text-muted-foreground">{q.points} pt{q.points !== 1 ? "s" : ""}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="p-2 border-t shrink-0">
+                  <button type="button" onClick={() => addAndSelect("MCQ")}
+                    className="w-full border border-dashed rounded-lg py-2 text-xs font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors flex items-center justify-center gap-1.5">
+                    <Plus className="h-3.5 w-3.5" /> New Question
+                  </button>
                 </div>
               </div>
-              {questions.map((q, qi) => (
-                <div key={qi} className="border rounded-xl p-4 space-y-3 bg-muted/40">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-blue-600 border-blue-200">Q{qi + 1}</Badge>
-                      {/* Kind toggle */}
-                      <div className="inline-flex rounded-md border overflow-hidden text-xs">
-                        <button type="button"
-                          onClick={() => setQuestionKind(qi, "MCQ")}
-                          className={`px-2.5 py-1 transition-colors ${q.kind === "MCQ" ? "bg-primary text-white" : "bg-card text-muted-foreground hover:bg-muted/60"}`}>
-                          MCQ
+
+              {/* CENTER — question editor */}
+              <div className="overflow-y-auto lg:max-h-[560px] p-5 space-y-4 border-b lg:border-b-0 lg:border-r">
+                {activeQuestion && (
+                  <>
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="font-semibold text-sm">Question Editor</h3>
+                      <div className="flex items-center gap-1">
+                        <button type="button" title="Duplicate question" onClick={() => duplicateQuestion(safeActiveQ)}
+                          className="p-1.5 rounded-md text-muted-foreground hover:bg-muted/60 hover:text-foreground">
+                          <Copy className="h-4 w-4" />
                         </button>
-                        <button type="button"
-                          onClick={() => setQuestionKind(qi, "SHORT_TEXT")}
-                          className={`px-2.5 py-1 transition-colors border-l ${q.kind === "SHORT_TEXT" ? "bg-primary text-white" : "bg-card text-muted-foreground hover:bg-muted/60"}`}>
-                          Theory
-                        </button>
+                        {questions.length > 1 && (
+                          <button type="button" title="Delete question" onClick={() => removeQuestionSafe(safeActiveQ)}
+                            className="p-1.5 rounded-md text-muted-foreground hover:bg-red-50 hover:text-red-600">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </div>
-                    {questions.length > 1 && (
-                      <button type="button" onClick={() => removeQuestion(qi)}
-                        className="text-red-400 hover:text-red-600 transition-colors">
-                        <Trash2 className="h-3.5 w-3.5" />
+
+                    <div className="inline-flex rounded-md border overflow-hidden text-xs">
+                      <button type="button" onClick={() => setQuestionKind(safeActiveQ, "MCQ")}
+                        className={`px-2.5 py-1 transition-colors ${activeQuestion.kind === "MCQ" ? "bg-primary text-white" : "bg-card text-muted-foreground hover:bg-muted/60"}`}>
+                        MCQ
                       </button>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-4 gap-3">
-                    <div className="col-span-3">
-                      <label className="text-xs font-medium text-muted-foreground">Question text</label>
-                      <Input className="mt-1" placeholder="Enter question…" value={q.text}
-                        onChange={(e) => updateQuestion(qi, "text", e.target.value)} />
+                      <button type="button" onClick={() => setQuestionKind(safeActiveQ, "SHORT_TEXT")}
+                        className={`px-2.5 py-1 transition-colors border-l ${activeQuestion.kind === "SHORT_TEXT" ? "bg-primary text-white" : "bg-card text-muted-foreground hover:bg-muted/60"}`}>
+                        Theory
+                      </button>
                     </div>
+
                     <div>
-                      <label className="text-xs font-medium text-muted-foreground">Points</label>
-                      <Input className="mt-1" type="number" min={1} value={q.points}
-                        onChange={(e) => updateQuestion(qi, "points", Number(e.target.value))} />
+                      <label className="text-xs font-semibold text-muted-foreground tracking-wide">QUESTION PROMPT</label>
+                      <Textarea rows={4} className="mt-1.5 text-sm" placeholder="Enter your question text here…"
+                        value={activeQuestion.text} onChange={(e) => updateQuestion(safeActiveQ, "text", e.target.value)} />
                     </div>
-                  </div>
 
-                  {q.kind === "MCQ" ? (
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground">Options <span className="text-muted-foreground font-normal">(tick the correct one(s))</span></p>
-                      {q.options.map((opt, oi) => (
-                        <div key={oi} className="flex items-center gap-2">
-                          <input type="checkbox" checked={opt.isCorrect}
-                            onChange={(e) => updateOption(qi, oi, "isCorrect", e.target.checked)}
-                            className="h-4 w-4 rounded border-slate-300 accent-blue-600" />
-                          <Input
-                            placeholder={`Option ${oi + 1}`}
-                            value={opt.text}
-                            onChange={(e) => updateOption(qi, oi, "text", e.target.value)}
-                            className={opt.isCorrect ? "border-emerald-300 bg-emerald-50" : ""} />
-                          {q.options.length > 2 && (
-                            <button type="button" onClick={() => removeOption(qi, oi)}
-                              className="text-red-400 hover:text-red-600 shrink-0">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          )}
+                    {activeQuestion.kind === "MCQ" ? (
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground tracking-wide">MULTIPLE CHOICE OPTIONS</label>
+                        <div className="mt-1.5 space-y-2">
+                          {activeQuestion.options.map((opt, oi) => (
+                            <div key={oi} className="flex items-center gap-2">
+                              <span className="h-7 w-7 shrink-0 rounded-full border flex items-center justify-center text-xs font-semibold text-muted-foreground">
+                                {String.fromCharCode(65 + oi)}
+                              </span>
+                              <Input value={opt.text} placeholder={`Option ${oi + 1}`}
+                                onChange={(e) => updateOption(safeActiveQ, oi, "text", e.target.value)}
+                                className={opt.isCorrect ? "border-emerald-300 bg-emerald-50" : ""} />
+                              <button type="button" title="Mark as correct"
+                                onClick={() => updateOption(safeActiveQ, oi, "isCorrect", !opt.isCorrect)}
+                                className={`h-6 w-6 shrink-0 rounded-full border-2 flex items-center justify-center transition-colors ${opt.isCorrect ? "border-primary bg-primary" : "border-border"}`}>
+                                {opt.isCorrect && <span className="h-2 w-2 rounded-full bg-white" />}
+                              </button>
+                              {activeQuestion.options.length > 2 && (
+                                <button type="button" onClick={() => removeOption(safeActiveQ, oi)}
+                                  className="text-muted-foreground hover:text-red-500 shrink-0">
+                                  <X className="h-4 w-4" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        <Button type="button" variant="ghost" size="sm" className="text-xs gap-1 mt-2 text-primary"
+                          onClick={() => addOption(safeActiveQ)}>
+                          <Plus className="h-3.5 w-3.5" /> Add another option
+                        </Button>
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground tracking-wide">
+                          MODEL ANSWER <span className="font-normal normal-case">(optional — guides AI-assisted grading)</span>
+                        </label>
+                        <Textarea rows={4} className="mt-1.5 text-sm" placeholder="What should a full-marks answer cover?"
+                          value={activeQuestion.sampleAnswer} onChange={(e) => updateQuestion(safeActiveQ, "sampleAnswer", e.target.value)} />
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-4 pt-3 border-t">
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground tracking-wide">DIFFICULTY</label>
+                        <Select value={activeQuestion.difficulty} onValueChange={(v) => updateQuestion(safeActiveQ, "difficulty", v)}>
+                          <SelectTrigger className="mt-1.5 h-9 text-sm"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {(["EASY", "MEDIUM", "HARD"] as const).map((d) => (
+                              <SelectItem key={d} value={d}>{DIFFICULTY_LABEL[d]}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground tracking-wide">POINT VALUE</label>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <Input type="number" min={1} className="h-9 text-sm" value={activeQuestion.points}
+                            onChange={(e) => updateQuestion(safeActiveQ, "points", Number(e.target.value))} />
+                          <span className="text-xs text-muted-foreground shrink-0">PTS</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button type="button" onClick={() => setPreviewOpen((v) => !v)}
+                      className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
+                      {previewOpen ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                      {previewOpen ? "Hide" : "Show"} Student View Preview
+                    </button>
+
+                    {previewOpen && (
+                      <div className="rounded-xl border bg-muted/30 p-5">
+                        <p className="text-base font-medium leading-relaxed">
+                          <span className="text-primary font-semibold mr-2">1.</span>
+                          {activeQuestion.text.trim() || "Untitled question"}
+                          <span className="ml-2 text-xs font-normal text-muted-foreground">
+                            ({activeQuestion.points} pt{activeQuestion.points !== 1 ? "s" : ""})
+                          </span>
+                        </p>
+                        {activeQuestion.kind === "MCQ" ? (
+                          <div className="mt-3 space-y-1.5">
+                            {activeQuestion.options.map((opt, oi) => (
+                              <div key={oi} className="rounded-lg border px-3 py-2 text-sm bg-card">
+                                {opt.text.trim() || `Option ${oi + 1}`}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <Textarea disabled rows={3} className="mt-3 text-sm bg-card"
+                            placeholder="The student writes their answer here…" />
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* RIGHT — AI Assistant */}
+              <div className="bg-muted/10 flex flex-col lg:max-h-[560px]">
+                <div className="p-4 border-b flex items-center gap-2 shrink-0">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <span className="font-semibold text-sm">AI Assistant</span>
+                  <span className="ml-auto h-2 w-2 rounded-full bg-emerald-500" title="Ready" />
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-semibold text-muted-foreground tracking-wide">CONTENT SOURCES</p>
+                      <button type="button" onClick={() => quizFilesRef.current?.click()}
+                        className="text-xs font-medium text-primary hover:underline">Upload</button>
+                    </div>
+                    <input ref={quizFilesRef} type="file" multiple className="hidden"
+                      accept=".pdf,.pptx,.jpg,.jpeg,.png,.webp" onChange={handleAddSourceFiles} />
+                    <div className="mt-2 space-y-1.5">
+                      {sourceFiles.length === 0 ? (
+                        <p className="text-xs text-muted-foreground italic">Attach slides to ground questions in your content.</p>
+                      ) : sourceFiles.map((f, i) => (
+                        <div key={i} className="flex items-center gap-2 rounded-lg border bg-card p-2">
+                          <FileText className="h-4 w-4 text-primary shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-medium truncate">{f.name}</p>
+                            <p className="text-[10px] text-muted-foreground">{(f.size / 1024 / 1024).toFixed(1)} MB · Ready</p>
+                          </div>
+                          <button type="button" onClick={() => removeSourceFile(i)} className="text-muted-foreground hover:text-red-500 shrink-0">
+                            <X className="h-3.5 w-3.5" />
+                          </button>
                         </div>
                       ))}
-                      <Button type="button" variant="ghost" size="sm" className="text-xs gap-1" onClick={() => addOption(qi)}>
-                        <Plus className="h-3 w-3" /> Add option
-                      </Button>
                     </div>
-                  ) : (
-                    <div>
-                      <label className="text-xs font-medium text-muted-foreground">
-                        Model answer <span className="text-muted-foreground font-normal">(optional — guides AI-assisted grading)</span>
-                      </label>
-                      <Textarea className="mt-1 text-sm" rows={3}
-                        placeholder="What should a full-marks answer cover?"
-                        value={q.sampleAnswer}
-                        onChange={(e) => updateQuestion(qi, "sampleAnswer", e.target.value)} />
-                      <p className="text-xs text-muted-foreground mt-1">Students answer this in their own words. You grade it (with AI help) after submission.</p>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-semibold text-muted-foreground tracking-wide mb-1.5">PROMPT TO QUESTION</p>
+                    <Textarea rows={4} className="text-sm bg-card"
+                      placeholder="Generate 5 MCQ questions about AVL Tree rotations from the uploaded slides…"
+                      value={aiInstructions} onChange={(e) => setAiInstructions(e.target.value)} />
+                    <Button type="button" className="w-full mt-2 gap-1.5" onClick={() => generateQuestions()} disabled={aiQLoading}>
+                      {aiQLoading
+                        ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Generating…</>
+                        : <>Generate <ArrowRight className="h-3.5 w-3.5" /></>}
+                    </Button>
+                  </div>
+
+                  {suggestion && (
+                    <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2">
+                      <p className="text-xs flex items-start gap-1.5">
+                        <Lightbulb className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                        <span>&ldquo;{suggestion}&rdquo;</span>
+                      </p>
+                      <div className="flex gap-2">
+                        <Button type="button" size="sm" className="text-xs h-7"
+                          onClick={() => { const s = suggestion; setSuggestion(null); generateQuestions(s); }}>
+                          Generate
+                        </Button>
+                        <Button type="button" size="sm" variant="outline" className="text-xs h-7" onClick={() => setSuggestion(null)}>
+                          Dismiss
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </div>
-              ))}
-            </CardContent>
-          </Card>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* ── PROGRAMMING: starter code + test cases ────────────────────────── */}
