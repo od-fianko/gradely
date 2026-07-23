@@ -1,13 +1,26 @@
 /**
  * Claude often wraps JSON responses in markdown code fences (```json ... ```)
- * even when told not to. A raw JSON.parse on that throws. This strips fences
- * and, as a fallback, slices from the first { or [ to the last } or ].
+ * even when told not to. A raw JSON.parse on that throws. This strips the
+ * OUTER fence and, as a fallback, slices from the first { or [ to the last
+ * } or ].
+ *
+ * Fence stripping only trims the first opening fence and the LAST closing
+ * fence in the text — not a naive non-greedy match to the first closing
+ * fence. A JSON string value can itself contain an example code block
+ * (its own nested ``` pair, e.g. a function signature in a problem
+ * statement); matching the first closing fence would truncate the JSON
+ * right there and produce invalid JSON.
  */
 export function extractJson<T = unknown>(raw: string): T {
   let text = raw.trim();
 
-  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fence) text = fence[1].trim();
+  if (text.startsWith("```")) {
+    const firstNewline   = text.indexOf("\n");
+    const lastFenceIndex = text.lastIndexOf("```");
+    if (firstNewline !== -1 && lastFenceIndex > firstNewline) {
+      text = text.slice(firstNewline + 1, lastFenceIndex).trim();
+    }
+  }
 
   if (!text.startsWith("{") && !text.startsWith("[")) {
     const start = text.search(/[{[]/);
