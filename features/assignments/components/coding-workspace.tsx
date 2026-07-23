@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { MarkdownText } from "@/features/assignments/components/markdown-text";
 
 interface TestCase {
   id: string; title: string | null; input: string; expectedOutput: string;
@@ -254,7 +255,7 @@ export function CodingWorkspace({ assignment: a, submissionId, initialCode, dead
 
           <div>
             <h1 className="text-xl font-bold">{a.title}</h1>
-            <p className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap leading-relaxed">{a.description}</p>
+            <MarkdownText text={a.description} className="text-sm text-muted-foreground mt-2" />
           </div>
 
           {a.testCases.length > 0 && (

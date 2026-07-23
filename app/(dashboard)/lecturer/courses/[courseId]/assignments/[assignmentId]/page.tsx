@@ -7,6 +7,7 @@ import { format } from "date-fns";
 import { Clock, Users, CheckCircle2, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { MarkdownText } from "@/features/assignments/components/markdown-text";
 import { PublishToggle } from "@/features/assignments/components/publish-toggle";
 import { SubmissionsTable } from "@/features/assignments/components/submissions-table";
 import { SimilarityCheck } from "@/features/assignments/components/similarity-check";
@@ -86,7 +87,7 @@ export default async function LecturerAssignmentDetailPage({
               : <Badge variant="secondary">Draft</Badge>}
           </div>
           <h1 className="text-2xl font-bold text-foreground">{assignment.title}</h1>
-          <p className="text-sm text-muted-foreground mt-1 max-w-xl">{assignment.description}</p>
+          <MarkdownText text={assignment.description} className="text-sm text-muted-foreground mt-1 max-w-xl" />
           <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5">
             <Clock className="h-3 w-3" /> Due {format(new Date(assignment.dueDate), "dd MMM yyyy, h:mm a")}
             · {assignment.totalMarks} marks

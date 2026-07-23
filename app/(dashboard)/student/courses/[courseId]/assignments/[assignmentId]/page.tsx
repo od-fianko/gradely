@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { SubmissionForm } from "@/features/assignments/components/submission-form";
 import { StartAttempt } from "@/features/assignments/components/start-attempt";
 import { GradeCard } from "@/features/assignments/components/grade-card";
+import { MarkdownText } from "@/features/assignments/components/markdown-text";
 
 export const metadata: Metadata = { title: "Assignment — Gradely" };
 
@@ -94,7 +95,7 @@ export default async function StudentAssignmentDetailPage({
           {gradePendingReview && <Badge variant="secondary">Grading in review</Badge>}
         </div>
         <h1 className="text-2xl font-bold text-foreground">{assignment.title}</h1>
-        <p className="text-sm text-muted-foreground mt-1 max-w-xl">{assignment.description}</p>
+        <MarkdownText text={assignment.description} className="text-sm text-muted-foreground mt-1 max-w-xl" />
         <p className={`text-xs mt-1 flex items-center gap-1.5 ${overdue ? "text-red-500" : "text-muted-foreground"}`}>
           <Clock className="h-3 w-3" />
           {overdue ? "Was due" : "Due"} {format(due, "dd MMM yyyy, h:mm a")}

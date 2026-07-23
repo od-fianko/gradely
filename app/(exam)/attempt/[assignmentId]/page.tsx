@@ -67,11 +67,19 @@ export default async function AttemptPage({
     );
   }
 
-  // Once timing has begun, a real submission row is guaranteed to exist (created by /start).
-  if (!existing) redirect(returnUrl);
+  // Timed assignments are guaranteed a submission row by now (created by /start).
+  // Untimed assignments never go through that gate, so create one transparently
+  // on first visit — there's nothing to "start", the workspace just needs
+  // somewhere to attach code and test runs.
+  const submission = existing ?? await prisma.submission.upsert({
+    where:  { studentId_assignmentId: { studentId: session.user.id, assignmentId: assignment.id } },
+    update: {},
+    create: { studentId: session.user.id, assignmentId: assignment.id, status: "DRAFT" },
+    include: { grade: true, codeSubmission: { select: { code: true } } },
+  });
 
-  const deadline = timed && existing.startedAt
-    ? new Date(existing.startedAt.getTime() + assignment.timeLimitMinutes! * 60_000).toISOString()
+  const deadline = timed && submission.startedAt
+    ? new Date(submission.startedAt.getTime() + assignment.timeLimitMinutes! * 60_000).toISOString()
     : null;
 
   const pd = assignment.programmingDetails;
@@ -99,8 +107,8 @@ export default async function AttemptPage({
           id: tc.id, title: tc.title, input: tc.input, expectedOutput: tc.expectedOutput,
         })),
       }}
-      submissionId={existing.id}
-      initialCode={existing.codeSubmission?.code ?? pd.starterCode ?? ""}
+      submissionId={submission.id}
+      initialCode={submission.codeSubmission?.code ?? pd.starterCode ?? ""}
       deadline={deadline}
       overdue={overdue}
     />
