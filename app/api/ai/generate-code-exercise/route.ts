@@ -1,7 +1,6 @@
 import { auth } from "@/lib/auth/auth";
 import { ok, unauthorized, forbidden, badRequest } from "@/lib/api/response";
 import { handleApiError } from "@/lib/errors/http-error";
-import { extractJson } from "@/lib/ai/extract-json";
 import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic();
@@ -41,6 +40,49 @@ Return ONLY valid JSON (no markdown):
 { "tests": [ { "name": "...", "input": "stdin text", "output": "expected stdout", "points": 1, "hidden": false, "group": "Sample" | "Edge Case" | "Performance" } ] }`,
 };
 
+const RESPONSE_SCHEMAS: Record<"problem" | "code" | "tests", Anthropic.Tool.InputSchema> = {
+  problem: {
+    type: "object",
+    additionalProperties: false,
+    required: ["title", "statement", "tags", "difficulty"],
+    properties: {
+      title: { type: "string" },
+      statement: { type: "string" },
+      tags: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 4 },
+      difficulty: { type: "string", enum: ["EASY", "MEDIUM", "HARD"] },
+    },
+  },
+  code: {
+    type: "object",
+    additionalProperties: false,
+    required: ["code"],
+    properties: { code: { type: "string" } },
+  },
+  tests: {
+    type: "object",
+    additionalProperties: false,
+    required: ["tests"],
+    properties: {
+      tests: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["name", "input", "output", "points", "hidden", "group"],
+          properties: {
+            name: { type: "string" },
+            input: { type: "string" },
+            output: { type: "string" },
+            points: { type: "number" },
+            hidden: { type: "boolean" },
+            group: { type: "string", enum: ["Sample", "Edge Case", "Performance"] },
+          },
+        },
+      },
+    },
+  },
+};
+
 export async function POST(req: Request) {
   try {
     const session = await auth();
@@ -64,10 +106,20 @@ export async function POST(req: Request) {
       model:      "claude-haiku-4-5-20251001",
       max_tokens: 2048,
       messages:   [{ role: "user", content: prompt }],
+      tools: [{
+        name: "submit_exercise_draft",
+        description: "Submit the completed exercise draft in the required format.",
+        input_schema: RESPONSE_SCHEMAS[step as keyof typeof RESPONSE_SCHEMAS],
+      }],
+      tool_choice: { type: "tool", name: "submit_exercise_draft", disable_parallel_tool_use: true },
     });
 
-    const raw  = (message.content[0] as { type: string; text: string }).text.trim();
-    const json = extractJson(raw);
-    return ok(json);
+    const toolUse = message.content.find(
+      (block): block is Anthropic.ToolUseBlock =>
+        block.type === "tool_use" && block.name === "submit_exercise_draft",
+    );
+    if (!toolUse) throw new Error("AI did not return an exercise draft");
+
+    return ok(toolUse.input);
   } catch (e) { return handleApiError(e); }
 }
