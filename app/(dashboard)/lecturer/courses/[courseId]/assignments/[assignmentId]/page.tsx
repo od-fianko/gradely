@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { PublishToggle } from "@/features/assignments/components/publish-toggle";
 import { SubmissionsTable } from "@/features/assignments/components/submissions-table";
+import { SimilarityCheck } from "@/features/assignments/components/similarity-check";
 
 export const metadata: Metadata = { title: "Assignment — Gradely" };
 
@@ -25,6 +26,7 @@ export default async function LecturerAssignmentDetailPage({
     include: {
       course:             { select: { id: true, code: true, title: true, lecturerId: true } },
       shortAnswerDetails: true,
+      programmingDetails: { select: { similarityCheckEnabled: true, similarityThreshold: true } },
       submissions: {
         include: {
           student:               { select: { id: true, name: true, email: true } },
@@ -111,6 +113,10 @@ export default async function LecturerAssignmentDetailPage({
           </Card>
         ))}
       </div>
+
+      {assignment.programmingDetails?.similarityCheckEnabled && (
+        <SimilarityCheck assignmentId={assignmentId} threshold={assignment.programmingDetails.similarityThreshold} />
+      )}
 
       <SubmissionsTable
         submissions={assignment.submissions}

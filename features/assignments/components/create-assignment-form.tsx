@@ -29,6 +29,10 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Sidebar, type SidebarUser, type SidebarCourse } from "@/components/layout/sidebar";
+import {
+  CodingAssignmentWizard, defaultCodingConfig,
+  type CodingConfig, type WizardTestCase,
+} from "./coding-assignment-wizard";
 
 const schema = z.object({
   title:        z.string().min(3, "Title must be at least 3 characters"),
@@ -47,13 +51,13 @@ interface QuizOption   { text: string; isCorrect: boolean }
 type QuestionKind = "MCQ" | "SHORT_TEXT";
 type QDifficulty  = "EASY" | "MEDIUM" | "HARD";
 interface QuizQuestion { text: string; points: number; kind: QuestionKind; difficulty: QDifficulty; sampleAnswer: string; options: QuizOption[] }
-interface TestCase     { title: string; input: string; expectedOutput: string; points: number; isHidden: boolean }
+// TestCase/CodingConfig types now live in coding-assignment-wizard.tsx
 
 const DIFFICULTY_LABEL: Record<QDifficulty, string> = { EASY: "Beginner", MEDIUM: "Intermediate", HARD: "Advanced" };
 
 const defaultOption   = (): QuizOption   => ({ text: "", isCorrect: false });
 const defaultQuestion = (kind: QuestionKind = "MCQ"): QuizQuestion => ({ text: "", points: kind === "MCQ" ? 1 : 5, kind, difficulty: "MEDIUM", sampleAnswer: "", options: kind === "MCQ" ? [defaultOption(), defaultOption()] : [] });
-const defaultTestCase = (): TestCase     => ({ title: "", input: "", expectedOutput: "", points: 1, isHidden: false });
+
 
 const TYPE_LABELS: Record<string, string> = {
   MULTIPLE_CHOICE: "Multiple Choice (MCQ)",
@@ -94,9 +98,7 @@ export function CreateAssignmentForm({ courseId, courseCode, courseTitle, lectur
   const [aiRLoading,   setAiRLoading]   = useState(false);
 
   // Programming state
-  const [testCases,    setTestCases]    = useState<TestCase[]>([defaultTestCase()]);
-  const [starterCode,  setStarterCode]  = useState("");
-  const [difficulty,   setDifficulty]   = useState<"EASY" | "MEDIUM" | "HARD">("MEDIUM");
+  const [codingConfig, setCodingConfig] = useState<CodingConfig>(defaultCodingConfig());
 
   // Generate-from-slides (shared across types)
   const slidesInputRef = useRef<HTMLInputElement>(null);
@@ -255,7 +257,7 @@ export function CreateAssignmentForm({ courseId, courseCode, courseTitle, lectur
     formData.append("description", description);
     formData.append("instructions", aiInstructions);
     formData.append("totalMarks", String(totalMarks));
-    formData.append("count", String(selectedType === "PROGRAMMING" ? testCases.length : 4));
+    formData.append("count", String(selectedType === "PROGRAMMING" ? codingConfig.testCases.length : 4));
 
     const res  = await fetch("/api/ai/generate-from-slides", { method: "POST", body: formData });
     const json = await res.json();
@@ -277,15 +279,19 @@ export function CreateAssignmentForm({ courseId, courseCode, courseTitle, lectur
       if (!title.trim())       form.setValue("title", json.data.suggestedTitle ?? "");
       if (!description.trim()) form.setValue("description", json.data.suggestedDescription ?? "");
     } else if (selectedType === "PROGRAMMING") {
-      setStarterCode(json.data.starterCode ?? "");
-      const generated: TestCase[] = (json.data.testCases ?? []).map((tc: TestCase) => ({
+      const generated: WizardTestCase[] = (json.data.testCases ?? []).map((tc: WizardTestCase) => ({
         title:          tc.title ?? "",
         input:          tc.input ?? "",
         expectedOutput: tc.expectedOutput ?? "",
         points:         tc.points ?? 1,
         isHidden:       tc.isHidden ?? false,
+        group:          tc.group ?? "Sample",
       }));
-      if (generated.length) setTestCases(generated);
+      setCodingConfig((c) => ({
+        ...c,
+        starterCode: json.data.starterCode ?? c.starterCode,
+        testCases:   generated.length ? generated : c.testCases,
+      }));
       if (!title.trim())       form.setValue("title", json.data.suggestedTitle ?? "");
       if (!description.trim()) form.setValue("description", json.data.suggestedDescription ?? "");
     }
@@ -324,29 +330,26 @@ export function CreateAssignmentForm({ courseId, courseCode, courseTitle, lectur
       if (generated.length) { setQuestions(generated); setActiveQ(0); }
       setUiType("MULTIPLE_CHOICE");
     } else if (d.type === "PROGRAMMING") {
-      setStarterCode(d.starterCode ?? "");
-      if (d.difficulty === "EASY" || d.difficulty === "MEDIUM" || d.difficulty === "HARD") setDifficulty(d.difficulty);
-      const generated: TestCase[] = (d.testCases ?? []).map((tc: TestCase) => ({
+      const generated: WizardTestCase[] = (d.testCases ?? []).map((tc: WizardTestCase) => ({
         title:          tc.title ?? "",
         input:          tc.input ?? "",
         expectedOutput: tc.expectedOutput ?? "",
         points:         tc.points ?? 1,
         isHidden:       tc.isHidden ?? false,
+        group:          tc.group ?? "Sample",
       }));
-      if (generated.length) setTestCases(generated);
+      setCodingConfig((c) => ({
+        ...c,
+        starterCode: d.starterCode ?? c.starterCode,
+        difficulty:  ["EASY", "MEDIUM", "HARD"].includes(d.difficulty) ? d.difficulty : c.difficulty,
+        testCases:   generated.length ? generated : c.testCases,
+      }));
       setUiType("PROGRAMMING");
     } else if (d.type === "SHORT_ANSWER") {
       setRubric(d.rubric ?? "");
       setUiType("SHORT_ANSWER");
     }
   };
-
-  // ── Test case helpers ─────────────────────────────────────────────────────────
-
-  const addTestCase    = () => setTestCases((t) => [...t, defaultTestCase()]);
-  const removeTestCase = (i: number) => setTestCases((t) => t.filter((_, idx) => idx !== i));
-  const updateTestCase = (i: number, field: keyof TestCase, value: string | number | boolean) =>
-    setTestCases((t) => t.map((tc, idx) => idx === i ? { ...tc, [field]: value } : tc));
 
   // ── Submit ────────────────────────────────────────────────────────────────────
 
@@ -365,7 +368,7 @@ export function CreateAssignmentForm({ courseId, courseCode, courseTitle, lectur
     }
 
     if (data.type === "PROGRAMMING") {
-      for (const tc of testCases) {
+      for (const tc of codingConfig.testCases) {
         if (!tc.expectedOutput.trim()) { setError("All test cases must have an expected output"); return; }
       }
     }
@@ -393,14 +396,22 @@ export function CreateAssignmentForm({ courseId, courseCode, courseTitle, lectur
       }),
       ...(data.type === "PROGRAMMING" && {
         programmingDetails: {
-          starterCode: starterCode.trim() || null,
-          difficulty,
-          testCases: testCases.map((tc) => ({
+          starterCode:            codingConfig.starterCode.trim() || null,
+          difficulty:             codingConfig.difficulty,
+          language:               codingConfig.language,
+          tags:                   codingConfig.tags,
+          autoGrade:              codingConfig.autoGrade,
+          gradeWeightPercent:     Number(codingConfig.gradeWeightPercent),
+          similarityCheckEnabled: codingConfig.similarityCheckEnabled,
+          similarityThreshold:    Number(codingConfig.similarityThreshold),
+          requireManualReview:    codingConfig.requireManualReview,
+          testCases: codingConfig.testCases.map((tc) => ({
             title:          tc.title.trim() || null,
             input:          tc.input,
             expectedOutput: tc.expectedOutput.trim(),
             points:         Number(tc.points),
             isHidden:       tc.isHidden,
+            group:          tc.group,
           })),
         },
       }),
@@ -922,129 +933,17 @@ export function CreateAssignmentForm({ courseId, courseCode, courseTitle, lectur
           </div>
         )}
 
-        {/* ── PROGRAMMING: starter code + test cases ────────────────────────── */}
+        {/* ── PROGRAMMING: 4-step coding assignment wizard ────────────────────── */}
         {showProgramming && (
-          <Card className="border-violet-100">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Code2 className="h-4 w-4 text-violet-500" /> Programming Setup
-              </CardTitle>
-              <Button type="button" variant="outline" size="sm" onClick={addTestCase} className="gap-1.5">
-                <Plus className="h-3.5 w-3.5" /> Add Test
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-5">
-
-              {/* AI Assistant */}
-              <div className="rounded-lg border bg-muted/40 p-4 space-y-3">
-                <p className="text-sm font-medium flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-primary" /> AI Assistant
-                </p>
-                <Textarea
-                  rows={2}
-                  className="bg-card text-sm"
-                  placeholder='Optional guidance — e.g. "A medium-difficulty exercise on linked lists with 5 test cases, two of them hidden edge cases."'
-                  value={aiInstructions}
-                  onChange={(e) => setAiInstructions(e.target.value)}
-                />
-                <Button type="button" size="sm" variant="outline"
-                  onClick={triggerSlidesUpload} disabled={slidesLoading} className="gap-1.5">
-                  {slidesLoading
-                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Reading slides…</>
-                    : <><Upload className="h-3.5 w-3.5" />Exercise + Tests from Slides</>}
-                </Button>
-              </div>
-
-              {/* Difficulty */}
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">Difficulty</label>
-                <div className="flex gap-2 mt-1.5">
-                  {(["EASY", "MEDIUM", "HARD"] as const).map((d) => (
-                    <button
-                      key={d}
-                      type="button"
-                      onClick={() => setDifficulty(d)}
-                      className={`px-3 py-1.5 rounded-md text-xs font-medium capitalize border transition-colors ${
-                        difficulty === d
-                          ? d === "EASY" ? "bg-emerald-50 border-emerald-300 text-emerald-700"
-                          : d === "MEDIUM" ? "bg-amber-50 border-amber-300 text-amber-700"
-                          : "bg-red-50 border-red-300 text-red-700"
-                          : "border-border text-muted-foreground hover:bg-muted/60"
-                      }`}
-                    >
-                      {d.toLowerCase()}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Starter code */}
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">
-                  Starter code <span className="text-muted-foreground font-normal">(optional — given to students)</span>
-                </label>
-                <Textarea
-                  className="mt-1 font-mono text-xs bg-slate-950 text-emerald-400 border-slate-700 placeholder:text-slate-400"
-                  rows={6}
-                  placeholder="# Write starter code for students here…"
-                  value={starterCode}
-                  onChange={(e) => setStarterCode(e.target.value)}
-                />
-              </div>
-
-              {/* Test cases */}
-              <div className="space-y-4">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Test Cases</p>
-                {testCases.map((tc, i) => (
-                  <div key={i} className="border rounded-xl p-4 space-y-3 bg-muted/40">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-violet-600 border-violet-200">Test {i + 1}</Badge>
-                        <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
-                          <input type="checkbox" checked={tc.isHidden}
-                            onChange={(e) => updateTestCase(i, "isHidden", e.target.checked)}
-                            className="rounded accent-violet-600" />
-                          Hidden from students
-                        </label>
-                      </div>
-                      {testCases.length > 1 && (
-                        <button type="button" onClick={() => removeTestCase(i)}
-                          className="text-red-400 hover:text-red-600">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-4 gap-3">
-                      <div className="col-span-3">
-                        <label className="text-xs font-medium text-muted-foreground">Test name (optional)</label>
-                        <Input className="mt-1" placeholder="e.g. Empty array input" value={tc.title}
-                          onChange={(e) => updateTestCase(i, "title", e.target.value)} />
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-muted-foreground">Points</label>
-                        <Input className="mt-1" type="number" min={1} value={tc.points}
-                          onChange={(e) => updateTestCase(i, "points", Number(e.target.value))} />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-xs font-medium text-muted-foreground">Input (stdin)</label>
-                        <Textarea className="mt-1 font-mono text-xs" rows={3} placeholder="Input data…"
-                          value={tc.input} onChange={(e) => updateTestCase(i, "input", e.target.value)} />
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-muted-foreground">Expected output</label>
-                        <Textarea className="mt-1 font-mono text-xs" rows={3} placeholder="Expected stdout…"
-                          value={tc.expectedOutput} onChange={(e) => updateTestCase(i, "expectedOutput", e.target.value)} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <CodingAssignmentWizard
+            title={title}
+            onTitleChange={(v) => form.setValue("title", v, { shouldValidate: true })}
+            description={description}
+            onDescriptionChange={(v) => form.setValue("description", v, { shouldValidate: true })}
+            totalMarks={totalMarks}
+            config={codingConfig}
+            onChange={setCodingConfig}
+          />
         )}
 
         {/* ── FILE UPLOAD: no extra setup needed ──────────────────────────────── */}

@@ -13,7 +13,7 @@ export default async function StudentGradesPage() {
   const session = await requireRole("STUDENT");
 
   const grades = await prisma.grade.findMany({
-    where: { submission: { studentId: session.user.id } },
+    where: { isReleased: true, submission: { studentId: session.user.id } },
     include: {
       submission: {
         include: {

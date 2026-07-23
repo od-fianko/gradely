@@ -42,7 +42,10 @@ enum NotificationType {
 
 enum ProgrammingLanguage {
   PYTHON
-  // Add more here: JAVASCRIPT, JAVA, C
+  JAVASCRIPT
+  JAVA
+  C
+  CPP
 }
 
 enum GradingMethod {
@@ -228,6 +231,14 @@ model ProgrammingAssignment {
   memoryLimit Int                 @default(128) // MB
   rubric      String?             @db.Text
   difficulty  Difficulty          @default(MEDIUM)
+  tags        String[]            @default([])
+
+  // Grading & review settings (Coding Assignment Setup wizard, step 4)
+  autoGrade              Boolean @default(true)  // false = lecturer grades manually, no auto-scoring
+  gradeWeightPercent      Int     @default(100)   // stored for future gradebook weighting — not yet computed anywhere
+  similarityCheckEnabled Boolean @default(false) // cross-student code-similarity screening
+  similarityThreshold    Int     @default(70)    // 0-100, flag pairs at or above this
+  requireManualReview    Boolean @default(false) // auto-scores stay unreleased until the lecturer approves
 
   assignmentId String     @unique
   assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
@@ -244,6 +255,7 @@ model TestCase {
   isHidden       Boolean @default(false) // hidden = not shown to student
   points         Int     @default(1)
   order          Int     @default(0)
+  group          String  @default("Sample") // Sample | Edge Case | Performance — organizational only
 
   programmingAssignmentId String
   programmingAssignment   ProgrammingAssignment @relation(fields: [programmingAssignmentId], references: [id], onDelete: Cascade)
@@ -476,6 +488,7 @@ model Grade {
   percentage Float    // score / maxScore * 100
   feedback   String?  @db.Text
   isAiGraded Boolean  @default(false)
+  isReleased Boolean  @default(true) // false = auto-score is held pending lecturer review
   gradedAt   DateTime @default(now())
   gradedById String?  // null = auto-graded
 

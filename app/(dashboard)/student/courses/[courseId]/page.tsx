@@ -52,7 +52,7 @@ export default async function StudentCourseDetailPage({
 
   const assignmentsWithGrade = course.assignments.map((a) => ({
     ...a,
-    grade: a.submissions[0]?.grade ?? null,
+    grade: a.submissions[0]?.grade?.isReleased ? a.submissions[0].grade : null,
   }));
 
   return (

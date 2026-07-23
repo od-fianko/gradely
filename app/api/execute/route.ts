@@ -10,6 +10,7 @@ const LANG_MAP: Record<string, { language: string; version: string }> = {
   JAVASCRIPT: { language: "javascript", version: "18.15.0" },
   JAVA:       { language: "java",       version: "15.0.2"  },
   C:          { language: "c",          version: "10.2.0"  },
+  CPP:        { language: "c++",        version: "10.2.0"  },
 };
 
 export async function POST(req: Request) {
@@ -87,13 +88,16 @@ export async function POST(req: Request) {
     const totalPoints  = testCases.reduce((s, t) => s + t.points, 0);
     const earnedPoints = results.filter((r) => r.passed).reduce((s, r) => s + r.points, 0);
 
-    // Auto-grade the submission based on test results
-    if (totalPoints > 0) {
+    // Auto-grade the submission based on test results — unless the lecturer
+    // turned auto-grading off for this exercise (manual grading instead).
+    const programmingDetails = submission.assignment.programmingDetails;
+    if (totalPoints > 0 && programmingDetails?.autoGrade !== false) {
       const percentage = (earnedPoints / totalPoints) * 100;
+      const isReleased = !programmingDetails?.requireManualReview;
       await prisma.grade.upsert({
         where:  { submissionId },
-        update: { score: earnedPoints, maxScore: totalPoints, percentage, isAiGraded: false },
-        create: { submissionId, score: earnedPoints, maxScore: totalPoints, percentage, isAiGraded: false },
+        update: { score: earnedPoints, maxScore: totalPoints, percentage, isAiGraded: false, isReleased },
+        create: { submissionId, score: earnedPoints, maxScore: totalPoints, percentage, isAiGraded: false, isReleased },
       }).catch(() => null);
     }
 

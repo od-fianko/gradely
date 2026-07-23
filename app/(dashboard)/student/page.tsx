@@ -29,7 +29,7 @@ export default async function StudentDashboardPage() {
       take:    6,
     }),
     prisma.grade.findMany({
-      where:   { submission: { studentId: session.user.id } },
+      where:   { isReleased: true, submission: { studentId: session.user.id } },
       include: {
         submission: {
           include: {

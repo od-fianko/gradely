@@ -57,7 +57,10 @@ export default async function StudentAssignmentDetailPage({
   });
   if (!assignment) notFound();
 
-  const existing = assignment.submissions[0] ?? null;
+  const rawExisting = assignment.submissions[0] ?? null;
+  const releasedGrade = rawExisting?.grade?.isReleased ? rawExisting.grade : null;
+  const existing = rawExisting ? { ...rawExisting, grade: releasedGrade } : null;
+  const gradePendingReview = !!rawExisting?.grade && !rawExisting.grade.isReleased;
   const due      = new Date(assignment.dueDate);
   const overdue  = isPast(due);
   const canSubmit = !overdue || assignment.allowLateSubmit;
@@ -88,6 +91,7 @@ export default async function StudentAssignmentDetailPage({
           </Badge>
           {overdue && !existing && <Badge variant="destructive">Overdue</Badge>}
           {existing?.grade && <Badge className="bg-emerald-500">Graded</Badge>}
+          {gradePendingReview && <Badge variant="secondary">Grading in review</Badge>}
         </div>
         <h1 className="text-2xl font-bold text-foreground">{assignment.title}</h1>
         <p className="text-sm text-muted-foreground mt-1 max-w-xl">{assignment.description}</p>
@@ -108,6 +112,17 @@ export default async function StudentAssignmentDetailPage({
               {existing.integrityScore != null ? ` (${existing.integrityScore}% confidence)` : ""}.
               Your lecturer has been notified. If this is your own work, please discuss it with your lecturer.
               You can update your submission with your own attempt at any time before the deadline.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {gradePendingReview && (
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="py-4">
+            <p className="text-sm font-semibold text-amber-700">Your submission was auto-graded</p>
+            <p className="text-xs text-amber-600 mt-1">
+              Your lecturer reviews auto-graded scores before releasing them. You&apos;ll be notified once your grade is available.
             </p>
           </CardContent>
         </Card>

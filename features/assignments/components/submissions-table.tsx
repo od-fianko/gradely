@@ -48,7 +48,7 @@ interface Submission {
   integrityReason:    string | null;
   integrityCheckedAt: Date | null;
   student:     { id: string; name: string; email: string };
-  grade:       { score: number; maxScore: number; percentage: number; feedback: string | null } | null;
+  grade:       { score: number; maxScore: number; percentage: number; feedback: string | null; isReleased: boolean } | null;
   shortAnswerSubmission: { answer: string } | null;
   codeSubmission: {
     code:        string;
@@ -89,6 +89,23 @@ export function SubmissionsTable({
   const [reviewLoading, setReviewLoading] = useState<Record<string, boolean>>({});
   const [showReview,    setShowReview]    = useState<Record<string, boolean>>({});
   const [integrityLoading, setIntegrityLoading] = useState<Record<string, boolean>>({});
+  const [releasing, setReleasing] = useState<Record<string, boolean>>({});
+
+  const releaseGrade = async (sub: Submission) => {
+    if (!sub.grade) return;
+    setReleasing((s) => ({ ...s, [sub.id]: true }));
+    await fetch(`/api/assignments/${assignmentId}/grade`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        submissionId:   sub.id,
+        marksObtained:  sub.grade.score,
+        feedback:       sub.grade.feedback ?? "",
+      }),
+    });
+    setReleasing((s) => ({ ...s, [sub.id]: false }));
+    router.refresh();
+  };
 
   const runIntegrity = async (submissionId: string) => {
     setIntegrityLoading((s) => ({ ...s, [submissionId]: true }));
@@ -208,12 +225,20 @@ export function SubmissionsTable({
                         </Badge>
                       )}
                       {hasGrade && (
-                        <Badge className="bg-emerald-500 text-xs">
+                        <Badge className={`text-xs ${sub.grade!.isReleased ? "bg-emerald-500" : "bg-amber-500"}`}>
                           {sub.grade!.score}/{sub.grade!.maxScore} · {sub.grade!.percentage.toFixed(0)}%
+                          {!sub.grade!.isReleased && " · Pending release"}
                         </Badge>
                       )}
                     </div>
                   </div>
+                  {hasGrade && !sub.grade!.isReleased && (
+                    <Button size="sm" variant="outline" className="gap-1.5 text-amber-700 border-amber-200 hover:bg-amber-50"
+                      onClick={() => releaseGrade(sub)} disabled={releasing[sub.id]}>
+                      {releasing[sub.id] ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                      Release
+                    </Button>
+                  )}
                   <Button variant="outline" size="sm" onClick={() => setExpanded(isExpanded ? null : sub.id)}>
                     {isExpanded ? "Collapse" : hasGrade ? "Review" : "Grade"}
                   </Button>

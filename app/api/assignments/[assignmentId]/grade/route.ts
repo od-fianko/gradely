@@ -31,6 +31,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ assignm
 
     const combinedFeedback = [feedback, aiFeedback].filter(Boolean).join("\n\n").trim() || undefined;
 
+    // A lecturer explicitly saving a grade counts as review — always releases it,
+    // even if auto-grading had held it back pending manual review.
     const grade = await prisma.grade.upsert({
       where: { submissionId },
       update: {
@@ -39,6 +41,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ assignm
         percentage,
         feedback: combinedFeedback,
         gradedById: session.user.id,
+        isReleased: true,
       },
       create: {
         submissionId,
@@ -47,6 +50,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ assignm
         percentage,
         feedback: combinedFeedback,
         gradedById: session.user.id,
+        isReleased: true,
       },
     });
     return ok(grade, "Grade saved");
