@@ -33,7 +33,6 @@ export interface CodingConfig {
   difficulty:              QDifficulty;
   testCases:               WizardTestCase[];
   autoGrade:               boolean;
-  gradeWeightPercent:      number;
   similarityCheckEnabled:  boolean;
   similarityThreshold:     number;
   requireManualReview:     boolean;
@@ -46,7 +45,6 @@ export const defaultCodingConfig = (): CodingConfig => ({
   difficulty: "MEDIUM",
   testCases: [{ title: "", input: "", expectedOutput: "", points: 1, isHidden: false, group: "Sample" }],
   autoGrade: true,
-  gradeWeightPercent: 100,
   similarityCheckEnabled: false,
   similarityThreshold: 70,
   requireManualReview: false,
@@ -100,12 +98,15 @@ interface Props {
   description:         string;
   onDescriptionChange: (v: string) => void;
   totalMarks:          number;
+  gradeWeight:         string; // shared with every other assignment type, set in the Details sheet
+  onGradeWeightChange: (v: string) => void;
   config:              CodingConfig;
   onChange:            (config: CodingConfig) => void;
 }
 
 export function CodingAssignmentWizard({
-  title, onTitleChange, description, onDescriptionChange, totalMarks, config, onChange,
+  title, onTitleChange, description, onDescriptionChange, totalMarks,
+  gradeWeight, onGradeWeightChange, config, onChange,
 }: Props) {
   const [step, setStep] = useState(0);
   const [newTag, setNewTag] = useState("");
@@ -443,9 +444,9 @@ export function CodingAssignmentWizard({
                   {config.autoGrade && (
                     <div className="flex items-center gap-2.5 pt-3 mt-3 border-t text-xs text-foreground/90">
                       Weight of this exercise in final grade
-                      <Input type="number" className="w-20 h-8" value={config.gradeWeightPercent}
-                        onChange={(e) => set("gradeWeightPercent", Number(e.target.value))} />
-                      <span className="text-muted-foreground">%</span>
+                      <Input type="number" min={1} className="w-24 h-8" placeholder={`${totalMarks} (default)`}
+                        value={gradeWeight} onChange={(e) => onGradeWeightChange(e.target.value)} />
+                      <span className="text-muted-foreground">— leave blank to weight by total marks</span>
                     </div>
                   )}
                 </ToggleCard>

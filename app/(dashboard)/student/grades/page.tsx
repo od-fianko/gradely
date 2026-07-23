@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { Trophy, Star, CheckCircle2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { computeWeightedAverage, resolveWeight } from "@/lib/grades/weighted-average";
 
 export const metadata: Metadata = { title: "My Grades — Gradely" };
 
@@ -23,6 +24,7 @@ export default async function StudentGradesPage() {
               title:     true,
               type:      true,
               totalMarks: true,
+              gradeWeightPercent: true,
               courseId:  true,
               course:    { select: { code: true, title: true } },
             },
@@ -38,6 +40,21 @@ export default async function StudentGradesPage() {
     : null;
 
   const passed = grades.filter((g) => g.percentage >= 50).length;
+
+  const byCourse = new Map<string, { code: string; title: string; grades: typeof grades }>();
+  for (const g of grades) {
+    const a = g.submission.assignment;
+    const entry = byCourse.get(a.courseId) ?? { code: a.course.code, title: a.course.title, grades: [] };
+    entry.grades.push(g);
+    byCourse.set(a.courseId, entry);
+  }
+  const courseGrades = Array.from(byCourse.entries()).map(([courseId, c]) => ({
+    courseId, code: c.code, title: c.title,
+    count: c.grades.length,
+    weighted: computeWeightedAverage(
+      c.grades.map((g) => ({ percentage: g.percentage, weight: resolveWeight(g.submission.assignment.gradeWeightPercent, g.submission.assignment.totalMarks) }))
+    ),
+  })).sort((a, b) => a.code.localeCompare(b.code));
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -68,6 +85,31 @@ export default async function StudentGradesPage() {
           </Card>
         ))}
       </div>
+
+      {courseGrades.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle className="text-base">Weighted grade by course</CardTitle></CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y">
+              {courseGrades.map((c) => (
+                <Link key={c.courseId} href={`/student/courses/${c.courseId}`}
+                  className="flex items-center justify-between px-5 py-3.5 hover:bg-muted/40 transition-colors">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{c.code} — {c.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{c.count} assignment{c.count !== 1 ? "s" : ""} graded</p>
+                  </div>
+                  <Badge className={`text-sm font-bold shrink-0 ${
+                    c.weighted === null ? "bg-muted text-muted-foreground"
+                    : c.weighted >= 70 ? "bg-emerald-500" : c.weighted >= 50 ? "bg-amber-500" : "bg-red-500"
+                  }`}>
+                    {c.weighted !== null ? `${c.weighted.toFixed(1)}%` : "—"}
+                  </Badge>
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {grades.length === 0 ? (
         <Card className="border-dashed">

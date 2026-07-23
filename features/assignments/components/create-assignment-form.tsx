@@ -43,6 +43,8 @@ const schema = z.object({
   passingMarks: z.coerce.number().int().min(0).optional(),
   timeLimitMinutes: z.string().optional()
     .refine((v) => !v || (/^\d+$/.test(v) && +v >= 1 && +v <= 600), "1–600 minutes"),
+  gradeWeightPercent: z.string().optional()
+    .refine((v) => !v || (/^\d+$/.test(v) && +v >= 1 && +v <= 1000), "1–1000"),
 });
 
 type Schema = z.infer<typeof schema>;
@@ -115,10 +117,11 @@ export function CreateAssignmentForm({ courseId, courseCode, courseTitle, lectur
     defaultValues: { title: "", description: "", type: "MULTIPLE_CHOICE", totalMarks: 100, dueDate: "" },
   });
 
-  const selectedType  = form.watch("type");
-  const title         = form.watch("title");
-  const description   = form.watch("description");
-  const totalMarks    = form.watch("totalMarks");
+  const selectedType     = form.watch("type");
+  const title            = form.watch("title");
+  const description      = form.watch("description");
+  const totalMarks       = form.watch("totalMarks");
+  const gradeWeightPercent = form.watch("gradeWeightPercent");
 
   const handleTypeChange = (v: string) => {
     setUiType(v);
@@ -401,7 +404,6 @@ export function CreateAssignmentForm({ courseId, courseCode, courseTitle, lectur
           language:               codingConfig.language,
           tags:                   codingConfig.tags,
           autoGrade:              codingConfig.autoGrade,
-          gradeWeightPercent:     Number(codingConfig.gradeWeightPercent),
           similarityCheckEnabled: codingConfig.similarityCheckEnabled,
           similarityThreshold:    Number(codingConfig.similarityThreshold),
           requireManualReview:    codingConfig.requireManualReview,
@@ -551,6 +553,22 @@ export function CreateAssignmentForm({ courseId, courseCode, courseTitle, lectur
                     <FormItem>
                       <FormLabel>Time limit, min <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
                       <FormControl><Input type="number" min={1} max={600} placeholder="e.g. 45" disabled={isLoading} {...field} value={field.value ?? ""} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="gradeWeightPercent" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Weight in final course grade <span className="text-muted-foreground font-normal">(optional)</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input type="number" min={1} placeholder={`Default: ${totalMarks} (its total marks)`}
+                          disabled={isLoading} {...field} value={field.value ?? ""} />
+                      </FormControl>
+                      <p className="text-xs text-muted-foreground">
+                        How much this assignment counts toward each student&apos;s weighted final grade for the course,
+                        relative to other assignments. Leave blank to weight by total marks.
+                      </p>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -941,6 +959,8 @@ export function CreateAssignmentForm({ courseId, courseCode, courseTitle, lectur
             description={description}
             onDescriptionChange={(v) => form.setValue("description", v, { shouldValidate: true })}
             totalMarks={totalMarks}
+            gradeWeight={gradeWeightPercent ?? ""}
+            onGradeWeightChange={(v) => form.setValue("gradeWeightPercent", v, { shouldValidate: true })}
             config={codingConfig}
             onChange={setCodingConfig}
           />

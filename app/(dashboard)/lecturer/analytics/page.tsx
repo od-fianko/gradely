@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { BarChart3, Users, TrendingUp, ClipboardCheck, BookOpen } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { computeWeightedAverage, resolveWeight } from "@/lib/grades/weighted-average";
 
 export const metadata: Metadata = { title: "Analytics — Gradely" };
 
@@ -26,18 +27,34 @@ export default async function LecturerAnalyticsPage() {
   const totalStudents    = courses.reduce((s, c) => s + c._count.enrollments, 0);
   const totalAssignments = courses.reduce((s, c) => s + c._count.assignments, 0);
 
-  const allGrades = courses.flatMap((c) => c.assignments.flatMap((a) => a.submissions.flatMap((s) => s.grade ? [s.grade.percentage] : [])));
-  const overallAvg = allGrades.length ? Math.round(allGrades.reduce((s, p) => s + p, 0) / allGrades.length) : null;
-
   const allSubmissions  = courses.flatMap((c) => c.assignments.flatMap((a) => a.submissions));
   const pendingGrading  = allSubmissions.filter((s) => !s.grade && (s.status === "SUBMITTED" || s.status === "LATE_SUBMITTED")).length;
 
+  // Each course's average is the mean of every student's own weighted final
+  // grade (assignment weight, or total marks when unweighted) — not a flat
+  // average of individual grade rows, which would over-count heavy assignments.
   const courseStats = courses.map((c) => {
-    const grades   = c.assignments.flatMap((a) => a.submissions.flatMap((s) => s.grade ? [s.grade.percentage] : []));
-    const avg      = grades.length ? Math.round(grades.reduce((s, p) => s + p, 0) / grades.length) : null;
-    const subs     = c.assignments.reduce((s, a) => s + a._count.submissions, 0);
+    const byStudent = new Map<string, { percentage: number; weight: number }[]>();
+    for (const a of c.assignments) {
+      for (const s of a.submissions) {
+        if (!s.grade) continue;
+        const arr = byStudent.get(s.studentId) ?? [];
+        arr.push({ percentage: s.grade.percentage, weight: resolveWeight(a.gradeWeightPercent, a.totalMarks) });
+        byStudent.set(s.studentId, arr);
+      }
+    }
+    const studentFinals = Array.from(byStudent.values())
+      .map((grades) => computeWeightedAverage(grades))
+      .filter((v): v is number => v !== null);
+    const avg  = studentFinals.length ? Math.round(studentFinals.reduce((s, v) => s + v, 0) / studentFinals.length) : null;
+    const subs = c.assignments.reduce((s, a) => s + a._count.submissions, 0);
     return { ...c, avg, subs };
   });
+
+  const coursesWithAvg = courseStats.filter((c) => c.avg !== null);
+  const overallAvg = coursesWithAvg.length
+    ? Math.round(coursesWithAvg.reduce((s, c) => s + c.avg!, 0) / coursesWithAvg.length)
+    : null;
 
   function scoreColor(pct: number | null) {
     if (pct === null) return "text-slate-400";
@@ -63,7 +80,7 @@ export default async function LecturerAnalyticsPage() {
         {[
           { label: "Total Students",    value: totalStudents,            icon: Users,          color: "text-blue-500",    bg: "bg-blue-50",    border: "border-t-blue-400"    },
           { label: "Total Assignments", value: totalAssignments,         icon: ClipboardCheck, color: "text-purple-500",  bg: "bg-purple-50",  border: "border-t-purple-400"  },
-          { label: "Overall Average",   value: overallAvg ? `${overallAvg}%` : "—", icon: TrendingUp, color: "text-emerald-500", bg: "bg-emerald-50", border: "border-t-emerald-400" },
+          { label: "Overall Avg (weighted)",   value: overallAvg ? `${overallAvg}%` : "—", icon: TrendingUp, color: "text-emerald-500", bg: "bg-emerald-50", border: "border-t-emerald-400" },
           { label: "Pending Grading",   value: pendingGrading,           icon: BookOpen,       color: "text-orange-500",  bg: "bg-orange-50",  border: "border-t-orange-400"  },
         ].map(({ label, value, icon: Icon, color, bg, border }) => (
           <Card key={label} className="hover:shadow-sm transition-shadow">
@@ -114,7 +131,7 @@ export default async function LecturerAnalyticsPage() {
                     </div>
                     <div className="text-center">
                       <p className={`font-bold ${scoreColor(c.avg)}`}>{c.avg !== null ? `${c.avg}%` : "—"}</p>
-                      <p className="text-xs text-muted-foreground">Avg Grade</p>
+                      <p className="text-xs text-muted-foreground">Weighted Avg</p>
                     </div>
                   </div>
                   {/* Progress bar */}

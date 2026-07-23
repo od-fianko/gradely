@@ -203,6 +203,7 @@ model Assignment {
   publishedAt     DateTime?
   allowLateSubmit Boolean        @default(false)
   timeLimitMinutes Int?          // timed attempt: minutes from start to auto-close
+  gradeWeightPercent Int?        // relative weight in the course's weighted final grade; null = weight by totalMarks
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -235,7 +236,6 @@ model ProgrammingAssignment {
 
   // Grading & review settings (Coding Assignment Setup wizard, step 4)
   autoGrade              Boolean @default(true)  // false = lecturer grades manually, no auto-scoring
-  gradeWeightPercent      Int     @default(100)   // stored for future gradebook weighting — not yet computed anywhere
   similarityCheckEnabled Boolean @default(false) // cross-student code-similarity screening
   similarityThreshold    Int     @default(70)    // 0-100, flag pairs at or above this
   requireManualReview    Boolean @default(false) // auto-scores stay unreleased until the lecturer approves

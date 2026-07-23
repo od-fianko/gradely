@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { AssignmentRow } from "@/features/assignments/components/assignment-row";
 import { AnnouncementsSection } from "@/features/courses/components/announcements-section";
+import { computeWeightedAverage, resolveWeight } from "@/lib/grades/weighted-average";
+import { Trophy } from "lucide-react";
 
 export const metadata: Metadata = { title: "Course — Gradely" };
 
@@ -55,6 +57,14 @@ export default async function StudentCourseDetailPage({
     grade: a.submissions[0]?.grade?.isReleased ? a.submissions[0].grade : null,
   }));
 
+  const gradedAssignments = assignmentsWithGrade.filter((a) => a.grade);
+  const weightedFinalGrade = computeWeightedAverage(
+    gradedAssignments.map((a) => ({
+      percentage: a.grade!.percentage,
+      weight:     resolveWeight(a.gradeWeightPercent, a.totalMarks),
+    }))
+  );
+
   return (
     <div className="space-y-6 animate-fade-in max-w-4xl">
 
@@ -79,11 +89,16 @@ export default async function StudentCourseDetailPage({
         </p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: "Students",    value: course._count.enrollments,         icon: Users },
           { label: "Assignments", value: course.assignments.length,         icon: ClipboardList },
-          { label: "Completed",   value: assignmentsWithGrade.filter((a) => a.grade).length, icon: BookOpen },
+          { label: "Completed",   value: gradedAssignments.length,          icon: BookOpen },
+          {
+            label: "Course grade",
+            value: weightedFinalGrade !== null ? `${weightedFinalGrade.toFixed(1)}%` : "—",
+            icon:  Trophy,
+          },
         ].map(({ label, value, icon: Icon }) => (
           <Card key={label} className="shadow-sm">
             <CardContent className="pt-5 pb-4 flex items-center gap-3">
@@ -98,6 +113,13 @@ export default async function StudentCourseDetailPage({
           </Card>
         ))}
       </div>
+
+      {weightedFinalGrade !== null && (
+        <p className="text-xs text-muted-foreground -mt-2">
+          Weighted across {gradedAssignments.length} of {course.assignments.length} assignments graded so far —
+          this will keep updating as more are graded.
+        </p>
+      )}
 
       <div className="space-y-2">
         <h2 className="text-lg font-semibold text-foreground">Assignments</h2>
