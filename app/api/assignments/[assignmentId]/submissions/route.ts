@@ -51,11 +51,13 @@ function buildSubmissionUpdateData(
       };
     }
 
-    case AssignmentType.FILE_UPLOAD: {
+    case AssignmentType.FILE_UPLOAD:
+    case AssignmentType.PROJECT: {
       const fileName = typeof body.fileName === "string" ? body.fileName : undefined;
       const originalName = typeof body.originalName === "string" ? body.originalName : fileName;
       const fileUrl = typeof body.fileUrl === "string" ? body.fileUrl : undefined;
       const fileType = typeof body.fileType === "string" ? body.fileType : "application/octet-stream";
+      const githubUrl = typeof body.githubUrl === "string" && body.githubUrl.trim() ? body.githubUrl.trim() : null;
       const fileSizeBytes =
         typeof body.fileSizeBytes === "number"
           ? body.fileSizeBytes
@@ -63,16 +65,22 @@ function buildSubmissionUpdateData(
             ? Number(body.fileSizeBytes)
             : NaN;
 
-      if (!fileName || !originalName || !fileUrl || Number.isNaN(fileSizeBytes)) {
+      const hasFile = fileName && originalName && fileUrl && !Number.isNaN(fileSizeBytes);
+      // Programming Projects may be submitted via GitHub link alone, with no uploaded file.
+      if (!hasFile && !(assignmentType === AssignmentType.PROJECT && githubUrl)) {
         throw new Error("FILE_SUBMISSION_INVALID");
       }
+
+      const fileData = hasFile
+        ? { fileName: fileName!, originalName: originalName!, fileUrl: fileUrl!, fileType, fileSizeBytes, githubUrl }
+        : { fileName: "github-link", originalName: "GitHub Repository", fileUrl: githubUrl!, fileType: "text/uri-list", fileSizeBytes: 0, githubUrl };
 
       return {
         ...baseData,
         fileSubmission: {
           upsert: {
-            update: { fileName, originalName, fileUrl, fileType, fileSizeBytes },
-            create: { fileName, originalName, fileUrl, fileType, fileSizeBytes },
+            update: fileData,
+            create: fileData,
           },
         },
       };
@@ -157,11 +165,13 @@ function buildSubmissionCreateData(
       };
     }
 
-    case AssignmentType.FILE_UPLOAD: {
+    case AssignmentType.FILE_UPLOAD:
+    case AssignmentType.PROJECT: {
       const fileName = typeof body.fileName === "string" ? body.fileName : undefined;
       const originalName = typeof body.originalName === "string" ? body.originalName : fileName;
       const fileUrl = typeof body.fileUrl === "string" ? body.fileUrl : undefined;
       const fileType = typeof body.fileType === "string" ? body.fileType : "application/octet-stream";
+      const githubUrl = typeof body.githubUrl === "string" && body.githubUrl.trim() ? body.githubUrl.trim() : null;
       const fileSizeBytes =
         typeof body.fileSizeBytes === "number"
           ? body.fileSizeBytes
@@ -169,14 +179,19 @@ function buildSubmissionCreateData(
             ? Number(body.fileSizeBytes)
             : NaN;
 
-      if (!fileName || !originalName || !fileUrl || Number.isNaN(fileSizeBytes)) {
+      const hasFile = fileName && originalName && fileUrl && !Number.isNaN(fileSizeBytes);
+      if (!hasFile && !(assignmentType === AssignmentType.PROJECT && githubUrl)) {
         throw new Error("FILE_SUBMISSION_INVALID");
       }
+
+      const fileData = hasFile
+        ? { fileName: fileName!, originalName: originalName!, fileUrl: fileUrl!, fileType, fileSizeBytes, githubUrl }
+        : { fileName: "github-link", originalName: "GitHub Repository", fileUrl: githubUrl!, fileType: "text/uri-list", fileSizeBytes: 0, githubUrl };
 
       return {
         ...baseData,
         fileSubmission: {
-          create: { fileName, originalName, fileUrl, fileType, fileSizeBytes },
+          create: fileData,
         },
       };
     }

@@ -5,7 +5,8 @@ import { prisma } from "@/lib/db/prisma";
 import type { GradingMethod } from "@prisma/client";
 
 const GRADING_METHOD: Record<string, GradingMethod> = {
-  PROGRAMMING:     "AUTOMATIC",
+  PROGRAMMING:     "AUTOMATIC", // may still be MANUAL in practice if autoGrade is off — set per-assignment below
+  PROJECT:         "MANUAL",
   MULTIPLE_CHOICE: "AUTOMATIC",
   SHORT_ANSWER:    "AI_ASSISTED",
   FILE_UPLOAD:     "MANUAL",
@@ -22,7 +23,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ courseId
       where: { courseId, ...(!isLecturer && { isPublished: true }) },
       include: {
         _count: { select: { submissions: true } },
-        programmingDetails: { select: { language: true } },
+        programmingDetails: { select: { language: true, autoGrade: true } },
+        projectDetails:     { select: { githubRequired: true } },
         quizDetails:        { select: { timeLimit: true } },
       },
       orderBy: { dueDate: "asc" },
@@ -39,9 +41,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ courseI
     const { courseId } = await params;
 
     const body = await req.json();
-    const { type, totalMarks, dueDate, timeLimitMinutes, gradeWeightPercent, programmingDetails, quizDetails, shortAnswerDetails, fileUploadDetails, ...base } = body;
+    const { type, totalMarks, dueDate, timeLimitMinutes, gradeWeightPercent, programmingDetails, projectDetails, quizDetails, shortAnswerDetails, fileUploadDetails, ...base } = body;
 
     if (!type || !totalMarks || !dueDate) return badRequest("type, totalMarks and dueDate are required");
+    if (type === "PROGRAMMING" && programmingDetails?.autoGrade === false && (programmingDetails?.testCases ?? []).length > 0)
+      return badRequest("Test cases were provided but automatic grading is disabled for this exercise");
 
     const assignment = await prisma.assignment.create({
       data: {
@@ -51,16 +55,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ courseI
         timeLimitMinutes:   timeLimitMinutes   ? Number(timeLimitMinutes)   : null,
         gradeWeightPercent: gradeWeightPercent ? Number(gradeWeightPercent) : null,
         dueDate: new Date(dueDate),
-        gradingMethod: GRADING_METHOD[type] ?? "MANUAL",
+        gradingMethod: type === "PROGRAMMING" && programmingDetails?.autoGrade === false
+          ? "MANUAL"
+          : GRADING_METHOD[type] ?? "MANUAL",
         courseId,
         ...(programmingDetails && {
           programmingDetails: {
             create: {
               ...programmingDetails,
-              testCases: { create: programmingDetails.testCases ?? [] },
+              // When auto-grading is off, test cases are irrelevant — don't persist any.
+              testCases: {
+                create: programmingDetails.autoGrade === false ? [] : (programmingDetails.testCases ?? []),
+              },
             },
           },
         }),
+        ...(projectDetails && { projectDetails: { create: projectDetails } }),
         ...(quizDetails && {
           quizDetails: {
             create: {
@@ -89,7 +99,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ courseI
         ...(shortAnswerDetails && { shortAnswerDetails: { create: shortAnswerDetails } }),
         ...(fileUploadDetails  && { fileUploadDetails:  { create: fileUploadDetails  } }),
       },
-      include: { programmingDetails: true, quizDetails: true, shortAnswerDetails: true, fileUploadDetails: true },
+      include: { programmingDetails: true, projectDetails: true, quizDetails: true, shortAnswerDetails: true, fileUploadDetails: true },
     });
     return ok(assignment, "Assignment created", 201);
   } catch (e) { return handleApiError(e); }

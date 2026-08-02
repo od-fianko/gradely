@@ -55,7 +55,7 @@ interface Submission {
     language:    string;
     testResults: TestResultDisplay[];
   } | null;
-  fileSubmission: { originalName: string; fileUrl: string } | null;
+  fileSubmission: { originalName: string; fileUrl: string; githubUrl?: string | null } | null;
   quizSubmission: { answers: QuizAnswerDisplay[] } | null;
 }
 
@@ -425,12 +425,25 @@ export function SubmissionsTable({
 
                     {/* File */}
                     {sub.fileSubmission && (
-                      <div className="rounded-lg bg-muted/60 border p-3">
-                        <p className="text-xs font-semibold text-muted-foreground mb-1">File</p>
-                        <a href={sub.fileSubmission.fileUrl} target="_blank" rel="noopener noreferrer"
-                          className="text-sm text-blue-600 hover:underline">
-                          {sub.fileSubmission.originalName}
-                        </a>
+                      <div className="rounded-lg bg-muted/60 border p-3 space-y-2">
+                        {sub.fileSubmission.fileUrl !== sub.fileSubmission.githubUrl && (
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground mb-1">File</p>
+                            <a href={sub.fileSubmission.fileUrl} target="_blank" rel="noopener noreferrer"
+                              className="text-sm text-blue-600 hover:underline">
+                              {sub.fileSubmission.originalName}
+                            </a>
+                          </div>
+                        )}
+                        {sub.fileSubmission.githubUrl && (
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground mb-1">GitHub Repository</p>
+                            <a href={sub.fileSubmission.githubUrl} target="_blank" rel="noopener noreferrer"
+                              className="text-sm text-blue-600 hover:underline break-all">
+                              {sub.fileSubmission.githubUrl}
+                            </a>
+                          </div>
+                        )}
                       </div>
                     )}
 

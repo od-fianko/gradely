@@ -8,7 +8,7 @@ import Link from "next/link";
 import {
   Loader2, Plus, Trash2, CheckSquare, Code2, Sparkles, FileText, Upload,
   Search, Copy, Eye, EyeOff, ArrowRight, Lightbulb, X, Wand2,
-  Rocket, ChevronDown, SlidersHorizontal, FolderArchive, Inbox,
+  Rocket, ChevronDown, SlidersHorizontal, FolderArchive, Inbox, FolderGit2,
 } from "lucide-react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -33,11 +33,15 @@ import {
   CodingAssignmentWizard, defaultCodingConfig,
   type CodingConfig, type WizardTestCase,
 } from "./coding-assignment-wizard";
+import {
+  ProjectAssignmentWizard, defaultProjectConfig,
+  type ProjectConfig,
+} from "./project-assignment-wizard";
 
 const schema = z.object({
   title:        z.string().min(3, "Title must be at least 3 characters"),
   description:  z.string().min(10, "Please provide a description"),
-  type:         z.enum(["PROGRAMMING", "MULTIPLE_CHOICE", "SHORT_ANSWER", "FILE_UPLOAD"]),
+  type:         z.enum(["PROGRAMMING", "PROJECT", "MULTIPLE_CHOICE", "SHORT_ANSWER", "FILE_UPLOAD"]),
   totalMarks:   z.coerce.number().int().min(1).max(1000),
   dueDate:      z.string().min(1, "Due date is required"),
   passingMarks: z.coerce.number().int().min(0).optional(),
@@ -65,7 +69,8 @@ const TYPE_LABELS: Record<string, string> = {
   MULTIPLE_CHOICE: "Multiple Choice (MCQ)",
   THEORY_SET:      "Theory Questions (written answers)",
   SHORT_ANSWER:    "Essay — single question (AI-assisted grading)",
-  PROGRAMMING:     "Programming (auto-graded via tests)",
+  PROGRAMMING:     "Coding Exercise (auto-gradable)",
+  PROJECT:         "Programming Project (manual/rubric graded)",
   FILE_UPLOAD:     "File Upload (manual grading)",
   OTHER:           "Custom — describe it to the AI",
 };
@@ -101,6 +106,9 @@ export function CreateAssignmentForm({ courseId, courseCode, courseTitle, lectur
 
   // Programming state
   const [codingConfig, setCodingConfig] = useState<CodingConfig>(defaultCodingConfig());
+
+  // Programming Project state
+  const [projectConfig, setProjectConfig] = useState<ProjectConfig>(defaultProjectConfig());
 
   // Generate-from-slides (shared across types)
   const slidesInputRef = useRef<HTMLInputElement>(null);
@@ -140,6 +148,7 @@ export function CreateAssignmentForm({ courseId, courseCode, courseTitle, lectur
   const showQuiz        = uiType === "MULTIPLE_CHOICE" || uiType === "THEORY_SET";
   const showEssay       = uiType === "SHORT_ANSWER";
   const showProgramming = uiType === "PROGRAMMING";
+  const showProject     = uiType === "PROJECT";
   const showCustom      = uiType === "OTHER";
 
   const safeActiveQ   = Math.min(activeQ, questions.length - 1);
@@ -180,10 +189,17 @@ export function CreateAssignmentForm({ courseId, courseCode, courseTitle, lectur
   };
   const removeSourceFile = (i: number) => setSourceFiles((prev) => prev.filter((_, idx) => idx !== i));
 
-  const switchToCode = () => {
+  const switchToCodeType = (type: "PROGRAMMING" | "PROJECT") => {
     if (questions.some((q) => q.text.trim()) &&
-        !window.confirm("Switch to a Programming assignment? Your quiz questions won't carry over.")) return;
-    handleTypeChange("PROGRAMMING");
+        !window.confirm(`Switch to a ${type === "PROGRAMMING" ? "Coding Exercise" : "Programming Project"}? Your quiz questions won't carry over.`)) return;
+    handleTypeChange(type);
+  };
+
+  // The Project Brief editor is the assignment's description — mirror it into
+  // the form's validated "description" field instead of duplicating an input.
+  const handleProjectConfigChange = (c: ProjectConfig) => {
+    setProjectConfig(c);
+    form.setValue("description", c.brief, { shouldValidate: true });
   };
 
   const updateQuestion = (i: number, field: keyof Omit<QuizQuestion, "options">, value: string | number) =>
@@ -370,10 +386,18 @@ export function CreateAssignmentForm({ courseId, courseCode, courseTitle, lectur
       }
     }
 
-    if (data.type === "PROGRAMMING") {
+    if (data.type === "PROGRAMMING" && codingConfig.autoGrade) {
+      if (codingConfig.testCases.length === 0) { setError("Add at least one test case, or turn off automatic grading"); return; }
       for (const tc of codingConfig.testCases) {
         if (!tc.expectedOutput.trim()) { setError("All test cases must have an expected output"); return; }
       }
+      if (codingConfig.testKind === "FUNCTION" && !codingConfig.functionName.trim()) {
+        setError("Enter the function name students must implement"); return;
+      }
+    }
+
+    if (data.type === "PROJECT" && !projectConfig.brief.trim()) {
+      setError("Add a project brief"); return;
     }
 
     const body: Record<string, unknown> = {
@@ -404,17 +428,31 @@ export function CreateAssignmentForm({ courseId, courseCode, courseTitle, lectur
           language:               codingConfig.language,
           tags:                   codingConfig.tags,
           autoGrade:              codingConfig.autoGrade,
+          functionName:           codingConfig.testKind === "FUNCTION" ? codingConfig.functionName.trim() || null : null,
+          referenceSolution:      codingConfig.referenceSolution.trim() || null,
           similarityCheckEnabled: codingConfig.similarityCheckEnabled,
           similarityThreshold:    Number(codingConfig.similarityThreshold),
           requireManualReview:    codingConfig.requireManualReview,
-          testCases: codingConfig.testCases.map((tc) => ({
+          testCases: !codingConfig.autoGrade ? [] : codingConfig.testCases.map((tc) => ({
             title:          tc.title.trim() || null,
+            kind:           codingConfig.testKind,
             input:          tc.input,
             expectedOutput: tc.expectedOutput.trim(),
             points:         Number(tc.points),
             isHidden:       tc.isHidden,
             group:          tc.group,
           })),
+        },
+      }),
+      ...(data.type === "PROJECT" && {
+        projectDetails: {
+          brief:                  projectConfig.brief.trim(),
+          functionalRequirements: projectConfig.functionalRequirements.trim(),
+          deliverables:           projectConfig.deliverables.trim(),
+          rubric:                 projectConfig.rubric.trim(),
+          githubRequired:         projectConfig.githubRequired,
+          allowedFileTypes:       projectConfig.allowedFileTypes,
+          maxFileSizeMB:          Number(projectConfig.maxFileSizeMB),
         },
       }),
     };
@@ -483,10 +521,24 @@ export function CreateAssignmentForm({ courseId, courseCode, courseTitle, lectur
                 className={pillClass(false)}>
                 <FileText className="h-3.5 w-3.5" /> Theory
               </button>
-              <button type="button" onClick={switchToCode}
-                className={pillClass(showProgramming)}>
-                <Code2 className="h-3.5 w-3.5" /> Code
-              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button type="button" className={pillClass(showProgramming || showProject)}>
+                    {showProject ? <FolderGit2 className="h-3.5 w-3.5" /> : <Code2 className="h-3.5 w-3.5" />}
+                    {showProject ? "Project" : "Code"} <ChevronDown className="h-3 w-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem onClick={() => switchToCodeType("PROGRAMMING")} className="flex-col items-start gap-0.5">
+                    <span className="font-medium flex items-center gap-1.5"><Code2 className="h-3.5 w-3.5" /> Coding Exercise</span>
+                    <span className="text-xs text-muted-foreground">Algorithmic/function questions, auto-graded</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => switchToCodeType("PROJECT")} className="flex-col items-start gap-0.5">
+                    <span className="font-medium flex items-center gap-1.5"><FolderGit2 className="h-3.5 w-3.5" /> Programming Project</span>
+                    <span className="text-xs text-muted-foreground">Larger project, manual/rubric graded</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -963,6 +1015,19 @@ export function CreateAssignmentForm({ courseId, courseCode, courseTitle, lectur
             onGradeWeightChange={(v) => form.setValue("gradeWeightPercent", v, { shouldValidate: true })}
             config={codingConfig}
             onChange={setCodingConfig}
+          />
+        )}
+
+        {/* ── PROJECT: Programming Project wizard ─────────────────────────────── */}
+        {showProject && (
+          <ProjectAssignmentWizard
+            title={title}
+            onTitleChange={(v) => form.setValue("title", v, { shouldValidate: true })}
+            totalMarks={totalMarks}
+            gradeWeight={gradeWeightPercent ?? ""}
+            onGradeWeightChange={(v) => form.setValue("gradeWeightPercent", v, { shouldValidate: true })}
+            config={projectConfig}
+            onChange={handleProjectConfigChange}
           />
         )}
 

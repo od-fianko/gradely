@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Editor, { type OnMount } from "@monaco-editor/react";
 import {
-  X, Timer, Loader2, Play, Sparkles, Send, Settings, Cloud, CheckCircle2,
+  X, Timer, Loader2, Play, Sparkles, Send, Settings, Cloud, CheckCircle2, Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,11 +13,12 @@ import { MarkdownText } from "@/features/assignments/components/markdown-text";
 
 interface TestCase {
   id: string; title: string | null; input: string; expectedOutput: string;
+  kind: "CONSOLE" | "FUNCTION";
 }
 
 interface RunResult {
   testCaseId: string; title: string | null; passed: boolean;
-  actual: string; expected: string; points: number;
+  actual: string; expected: string; points: number; error?: string | null;
 }
 
 interface Props {
@@ -28,6 +29,7 @@ interface Props {
     language: string; difficulty: "EASY" | "MEDIUM" | "HARD";
     timeLimitSeconds: number; memoryLimitMB: number;
     hiddenTestCount: number;
+    functionName: string | null;
     testCases: TestCase[];
   };
   submissionId: string;
@@ -165,6 +167,22 @@ export function CodingWorkspace({ assignment: a, submissionId, initialCode, dead
     });
   };
 
+  // ── Upload a source file as an alternative to typing ────────────────────────
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = typeof reader.result === "string" ? reader.result : "";
+      setCode(text);
+      scheduleSave(text);
+    };
+    reader.readAsText(file);
+  };
+
   // ── AI Tutor chat ────────────────────────────────────────────────────────────
   const [chat, setChat] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
@@ -258,13 +276,28 @@ export function CodingWorkspace({ assignment: a, submissionId, initialCode, dead
             <MarkdownText text={a.description} className="text-sm text-muted-foreground mt-2" />
           </div>
 
+          {a.functionName && (
+            <p className="text-xs font-mono rounded-lg border bg-muted/40 px-3 py-2">
+              <span className="text-muted-foreground">Implement: </span>{a.functionName}(...)
+            </p>
+          )}
+
           {a.testCases.length > 0 && (
             <div className="space-y-3">
               {a.testCases.map((tc, i) => (
                 <div key={tc.id} className="rounded-lg border bg-muted/40 p-3 space-y-1.5">
                   <p className="text-xs font-semibold">Example {i + 1}:</p>
-                  <p className="text-xs font-mono"><span className="text-muted-foreground">Input: </span>{tc.input || "(none)"}</p>
-                  <p className="text-xs font-mono"><span className="text-muted-foreground">Output: </span>{tc.expectedOutput}</p>
+                  {tc.kind === "FUNCTION" ? (
+                    <>
+                      <p className="text-xs font-mono"><span className="text-muted-foreground">Arguments: </span>{tc.input || "()"}</p>
+                      <p className="text-xs font-mono"><span className="text-muted-foreground">Expected return: </span>{tc.expectedOutput}</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-xs font-mono"><span className="text-muted-foreground">Input: </span>{tc.input || "(none)"}</p>
+                      <p className="text-xs font-mono"><span className="text-muted-foreground">Output: </span>{tc.expectedOutput}</p>
+                    </>
+                  )}
                   {tc.title && <p className="text-xs text-muted-foreground italic">Note: {tc.title}</p>}
                 </div>
               ))}
@@ -288,13 +321,24 @@ export function CodingWorkspace({ assignment: a, submissionId, initialCode, dead
         <section className="flex-1 flex flex-col min-w-0 bg-[#1e1e1e]">
           <div className="h-10 shrink-0 flex items-center justify-between px-4 border-b border-black/30">
             <span className="text-xs text-slate-300 font-mono">solution.{EXT[a.language] ?? "txt"}</span>
-            <button
-              onClick={() => setFontSize((f) => (f >= 18 ? 12 : f + 2))}
-              title="Cycle font size"
-              className="text-slate-400 hover:text-slate-200 transition-colors"
-            >
-              <Settings className="h-3.5 w-3.5" />
-            </button>
+            <div className="flex items-center gap-3">
+              <input ref={fileInputRef} type="file" className="hidden"
+                accept={`.${EXT[a.language] ?? "txt"},.txt`} onChange={handleFileUpload} />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                title="Upload a source file (replaces your current code)"
+                className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                <Upload className="h-3.5 w-3.5" /> Upload File
+              </button>
+              <button
+                onClick={() => setFontSize((f) => (f >= 18 ? 12 : f + 2))}
+                title="Cycle font size"
+                className="text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                <Settings className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
 
           <div className="flex-1 min-h-0">
@@ -330,7 +374,8 @@ export function CodingWorkspace({ assignment: a, submissionId, initialCode, dead
               {results?.map((r, i) => (
                 <div key={r.testCaseId} className={`text-xs rounded px-2 py-1.5 ${r.passed ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
                   <span className="font-semibold">{r.passed ? "PASS" : "FAIL"}</span> — {r.title ?? `Test ${i + 1}`}
-                  {!r.passed && <span className="ml-2 opacity-80">got: {r.actual || "(no output)"}</span>}
+                  {!r.passed && !r.error && <span className="ml-2 opacity-80">got: {r.actual || "(no output)"}</span>}
+                  {r.error && <div className="mt-1 pl-1 font-mono whitespace-pre-wrap opacity-90">{r.error}</div>}
                 </div>
               ))}
             </div>

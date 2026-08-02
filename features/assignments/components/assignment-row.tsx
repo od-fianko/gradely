@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import { format, isPast, isWithinInterval, addDays } from "date-fns";
-import { Clock, Users, ChevronRight, FileText, Code2, CheckSquare, Upload } from "lucide-react";
+import { Clock, Users, ChevronRight, FileText, Code2, CheckSquare, Upload, FolderGit2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 const TYPE_META = {
-  PROGRAMMING:     { label: "Programming",    icon: Code2,        color: "bg-violet-50 text-violet-600 border-violet-200"  },
-  MULTIPLE_CHOICE: { label: "Quiz",           icon: CheckSquare,  color: "bg-blue-50 text-blue-600 border-blue-200"         },
-  SHORT_ANSWER:    { label: "Short Answer",   icon: FileText,     color: "bg-amber-50 text-amber-600 border-amber-200"      },
-  FILE_UPLOAD:     { label: "File Upload",    icon: Upload,       color: "bg-emerald-50 text-emerald-600 border-emerald-200" },
+  PROGRAMMING:     { label: "Coding Exercise", icon: Code2,        color: "bg-violet-50 text-violet-600 border-violet-200"  },
+  PROJECT:         { label: "Project",         icon: FolderGit2,   color: "bg-indigo-50 text-indigo-600 border-indigo-200"  },
+  MULTIPLE_CHOICE: { label: "Quiz",            icon: CheckSquare,  color: "bg-blue-50 text-blue-600 border-blue-200"         },
+  SHORT_ANSWER:    { label: "Short Answer",    icon: FileText,     color: "bg-amber-50 text-amber-600 border-amber-200"      },
+  FILE_UPLOAD:     { label: "File Upload",     icon: Upload,       color: "bg-emerald-50 text-emerald-600 border-emerald-200" },
 };
 
 interface Props {

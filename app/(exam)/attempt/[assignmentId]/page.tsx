@@ -44,8 +44,12 @@ export default async function AttemptPage({
 
   const returnUrl = `/student/courses/${assignment.courseId}/assignments/${assignment.id}`;
 
-  // Already graded, or deadline closed with no late submissions — nothing to attempt here.
-  if (existing?.grade || !canSubmit) redirect(returnUrl);
+  // Already submitted (whether or not it's been graded yet), or deadline closed
+  // with no late submissions — nothing to attempt here. Gating on submission
+  // status rather than grade existence matters once auto-grading can be off:
+  // a manually-graded submission may have no Grade row for a long time.
+  const alreadySubmitted = existing ? existing.status !== "DRAFT" : false;
+  if (alreadySubmitted || !canSubmit) redirect(returnUrl);
 
   const timed      = !!assignment.timeLimitMinutes;
   const needsStart = timed && !existing?.startedAt && !existing?.submittedAt;
@@ -103,8 +107,9 @@ export default async function AttemptPage({
         timeLimitSeconds: pd.timeLimit,
         memoryLimitMB: pd.memoryLimit,
         hiddenTestCount,
+        functionName: pd.functionName,
         testCases: pd.testCases.map((tc) => ({
-          id: tc.id, title: tc.title, input: tc.input, expectedOutput: tc.expectedOutput,
+          id: tc.id, title: tc.title, input: tc.input, expectedOutput: tc.expectedOutput, kind: tc.kind,
         })),
       }}
       submissionId={submission.id}

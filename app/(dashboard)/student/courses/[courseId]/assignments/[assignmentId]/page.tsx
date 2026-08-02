@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { format, isPast } from "date-fns";
-import { Clock, Award, Code2, ArrowRight } from "lucide-react";
+import { Clock, Award, Code2, ArrowRight, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,6 +34,7 @@ export default async function StudentAssignmentDetailPage({
       course:             { select: { code: true, title: true } },
       shortAnswerDetails:  true,
       fileUploadDetails:   true,
+      projectDetails:      { select: { githubRequired: true, allowedFileTypes: true, maxFileSizeMB: true } },
       programmingDetails:  { select: { starterCode: true } },
       quizDetails:        {
         include: {
@@ -71,6 +72,10 @@ export default async function StudentAssignmentDetailPage({
   const deadline   = timed && existing?.startedAt && !existing?.submittedAt
     ? new Date(existing.startedAt.getTime() + assignment.timeLimitMinutes! * 60_000).toISOString()
     : null;
+
+  // Locked once submitted — status, not grade existence, since a manually
+  // graded submission may go a long time with no Grade row at all.
+  const codeSubmitted = !!rawExisting && rawExisting.status !== "DRAFT";
 
   return (
     <div className="space-y-6 animate-fade-in max-w-2xl mx-auto w-full">
@@ -135,25 +140,39 @@ export default async function StudentAssignmentDetailPage({
 
       {canSubmit ? (
         assignment.type === "PROGRAMMING" ? (
-          <Card className="border-primary/20">
-            <CardContent className="py-10 flex flex-col items-center text-center gap-3">
-              <div className="rounded-full bg-primary/10 p-3">
-                <Code2 className="h-7 w-7 text-primary" />
-              </div>
-              <p className="font-semibold text-lg">
-                {existing ? "Continue your attempt" : "Ready to start coding?"}
-              </p>
-              <p className="text-sm text-muted-foreground max-w-sm">
-                This opens a dedicated coding workspace with an editor, test runner, and an AI tutor
-                that gives hints — not answers.
-              </p>
-              <Button asChild size="lg" className="mt-2 gap-2">
-                <Link href={`/attempt/${assignment.id}`}>
-                  {existing ? "Resume Workspace" : "Open Coding Workspace"} <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
+          codeSubmitted ? (
+            !existing?.grade && (
+              <Card className="border-emerald-200 bg-emerald-50">
+                <CardContent className="py-10 flex flex-col items-center text-center gap-3">
+                  <CheckCircle2 className="h-7 w-7 text-emerald-600" />
+                  <p className="font-semibold text-lg text-emerald-800">Submitted</p>
+                  <p className="text-sm text-emerald-700 max-w-sm">
+                    Your code has been submitted and is awaiting grading. It can no longer be edited.
+                  </p>
+                </CardContent>
+              </Card>
+            )
+          ) : (
+            <Card className="border-primary/20">
+              <CardContent className="py-10 flex flex-col items-center text-center gap-3">
+                <div className="rounded-full bg-primary/10 p-3">
+                  <Code2 className="h-7 w-7 text-primary" />
+                </div>
+                <p className="font-semibold text-lg">
+                  {existing ? "Continue your attempt" : "Ready to start coding?"}
+                </p>
+                <p className="text-sm text-muted-foreground max-w-sm">
+                  This opens a dedicated coding workspace with an editor, test runner, and an AI tutor
+                  that gives hints — not answers.
+                </p>
+                <Button asChild size="lg" className="mt-2 gap-2">
+                  <Link href={`/attempt/${assignment.id}`}>
+                    {existing ? "Resume Workspace" : "Open Coding Workspace"} <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          )
         ) : needsStart ? (
           <StartAttempt assignmentId={assignment.id} minutes={assignment.timeLimitMinutes!} />
         ) : (
@@ -164,6 +183,7 @@ export default async function StudentAssignmentDetailPage({
             totalMarks:  assignment.totalMarks,
             quizDetails: assignment.quizDetails as any,
             starterCode: assignment.programmingDetails?.starterCode ?? null,
+            projectDetails: assignment.projectDetails,
           }}
           existing={existing}
           courseId={courseId}

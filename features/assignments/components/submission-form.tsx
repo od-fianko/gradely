@@ -28,6 +28,7 @@ interface Props {
     totalMarks:  number;
     quizDetails: { questions: QuizQuestion[] } | null;
     starterCode: string | null;
+    projectDetails?: { githubRequired: boolean; allowedFileTypes: string[]; maxFileSizeMB: number } | null;
   };
   existing: {
     id:     string;
@@ -36,7 +37,7 @@ interface Props {
     shortAnswerSubmission: { answer: string } | null;
     codeSubmission:        { code: string; language: string } | null;
     quizSubmission:        { answers: { questionId: string; selectedOption: { id: string } | null; textAnswer?: string | null }[] } | null;
-    fileSubmission:        { originalName: string; fileUrl: string } | null;
+    fileSubmission:        { originalName: string; fileUrl: string; githubUrl?: string | null } | null;
   } | null;
   courseId: string;
   deadline?: string | null; // ISO — timed attempts auto-submit at this moment
@@ -71,6 +72,9 @@ export function SubmissionForm({ assignment, existing, courseId, deadline }: Pro
       ? { url: existing.fileSubmission.fileUrl, fileName: existing.fileSubmission.originalName, originalName: existing.fileSubmission.originalName, fileType: "", fileSizeBytes: 0 }
       : null
   );
+
+  // Programming Project — GitHub repo link (optional unless required)
+  const [githubUrl, setGithubUrl] = useState(existing?.fileSubmission?.githubUrl ?? "");
 
   // Quiz
   const initAnswers = () => {
@@ -156,6 +160,23 @@ export function SubmissionForm({ assignment, existing, courseId, deadline }: Pro
       }
       if (!fileData) { setError("Please select a file to upload"); setLoading(false); return; }
       body = { fileName: fileData.fileName, originalName: fileData.originalName, fileUrl: fileData.url, fileType: fileData.fileType, fileSizeBytes: fileData.fileSizeBytes };
+    } else if (assignment.type === "PROJECT") {
+      if (assignment.projectDetails?.githubRequired && !githubUrl.trim()) {
+        setError("A GitHub repository link is required for this project"); setLoading(false); return;
+      }
+      let fileData = uploadedFile;
+      if (selectedFile && !uploadedFile) {
+        fileData = await uploadFile(selectedFile);
+        if (!fileData) { setLoading(false); return; }
+        setUploadedFile(fileData);
+      }
+      if (!fileData && !githubUrl.trim()) {
+        setError("Upload your project files or link a GitHub repository"); setLoading(false); return;
+      }
+      body = {
+        ...(fileData && { fileName: fileData.fileName, originalName: fileData.originalName, fileUrl: fileData.url, fileType: fileData.fileType, fileSizeBytes: fileData.fileSizeBytes }),
+        githubUrl: githubUrl.trim() || null,
+      };
     }
 
     const res  = await fetch(`/api/assignments/${assignment.id}/submissions`, {
@@ -365,6 +386,58 @@ export function SubmissionForm({ assignment, existing, courseId, deadline }: Pro
                   onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)} />
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── PROJECT ── */}
+        {assignment.type === "PROJECT" && (
+          <div className="space-y-3">
+            {uploadedFile ? (
+              <div className="flex items-center gap-3 rounded-xl border bg-emerald-50 border-emerald-200 px-4 py-3">
+                <FileText className="h-5 w-5 text-emerald-600 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-emerald-800 truncate">{uploadedFile.originalName}</p>
+                  <p className="text-xs text-emerald-600">Uploaded successfully</p>
+                </div>
+                <button type="button" onClick={() => { setUploadedFile(null); setSelectedFile(null); }}
+                  className="text-emerald-500 hover:text-red-500 transition-colors">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <div
+                className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-blue-300 hover:bg-blue-50/50 transition-all cursor-pointer"
+                onClick={() => fileRef.current?.click()}
+              >
+                <Upload className="h-8 w-8 text-slate-400 mx-auto mb-2" />
+                <p className="text-sm font-medium text-muted-foreground">Click to select your project files</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {(assignment.projectDetails?.allowedFileTypes ?? ["zip", "pdf"]).join(", ").toUpperCase()}
+                  {" — max "}{assignment.projectDetails?.maxFileSizeMB ?? 25} MB
+                  {!assignment.projectDetails?.githubRequired && " (optional if you provide a GitHub link below)"}
+                </p>
+                {selectedFile && (
+                  <p className="text-xs text-blue-600 mt-2 font-medium">{selectedFile.name} selected</p>
+                )}
+                <input ref={fileRef} type="file" className="hidden"
+                  accept={(assignment.projectDetails?.allowedFileTypes ?? ["zip", "pdf"]).map((t) => `.${t}`).join(",")}
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)} />
+              </div>
+            )}
+
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">
+                GitHub repository {assignment.projectDetails?.githubRequired ? "(required)" : "(optional)"}
+              </label>
+              <input
+                type="url"
+                placeholder="https://github.com/your-username/your-project"
+                value={githubUrl}
+                onChange={(e) => setGithubUrl(e.target.value)}
+                disabled={loading}
+                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
           </div>
         )}
 

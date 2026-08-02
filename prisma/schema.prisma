@@ -15,11 +15,30 @@ enum Role {
   ADMIN
 }
 
+model University {
+  id        String   @id @default(cuid())
+  name      String
+  domain    String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users   User[]
+  courses Course[]
+
+  @@map("universities")
+}
+
 enum AssignmentType {
-  PROGRAMMING
+  PROGRAMMING // "Coding Exercise" — algorithmic/function questions, auto-grading optional
+  PROJECT     // "Programming Project" — larger software project, manual/rubric graded
   MULTIPLE_CHOICE
   SHORT_ANSWER
   FILE_UPLOAD
+}
+
+enum TestCaseKind {
+  CONSOLE  // stdin -> stdout
+  FUNCTION // call a named function with arguments, compare its return value
 }
 
 enum SubmissionStatus {
@@ -74,10 +93,16 @@ model User {
   password  String?  // null for OAuth users
   image     String?
   role      Role     @default(STUDENT)
+  level     Int?
+  isVerified Boolean @default(false)
+  verificationCodeHash String?
+  verificationCodeExpiresAt DateTime?
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  universityId String?
+  university   University? @relation(fields: [universityId], references: [id])
   accounts       Account[]
   sessions       Session[]
   taughtCourses  Course[]         @relation("LecturerCourses")
@@ -89,6 +114,7 @@ model User {
 
   @@index([email])
   @@index([role])
+  @@index([universityId])
   @@map("users")
 }
 
@@ -142,17 +168,21 @@ model Course {
   title       String
   description String?  @db.Text
   semester    String   // e.g. "2024/2025 Sem 1"
+  level       Int
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   lecturerId    String
+  universityId  String
   lecturer      User           @relation("LecturerCourses", fields: [lecturerId], references: [id])
+  university    University     @relation(fields: [universityId], references: [id])
   enrollments   Enrollment[]
   assignments   Assignment[]
   announcements Announcement[]
 
   @@index([lecturerId])
+  @@index([universityId, level])
   @@index([code])
   @@map("courses")
 }
@@ -212,6 +242,7 @@ model Assignment {
   submissions        Submission[]
   notifications      Notification[]
   programmingDetails ProgrammingAssignment?
+  projectDetails     ProjectAssignment?
   quizDetails        QuizAssignment?
   shortAnswerDetails ShortAnswerAssignment?
   fileUploadDetails  FileUploadAssignment?
@@ -234,8 +265,12 @@ model ProgrammingAssignment {
   difficulty  Difficulty          @default(MEDIUM)
   tags        String[]            @default([])
 
+  // Function-based testing: the one function every FUNCTION test case calls.
+  functionName      String? // required when any test case uses kind = FUNCTION
+  referenceSolution String? @db.Text // hidden from students; lecturer/AI-authored model answer
+
   // Grading & review settings (Coding Assignment Setup wizard, step 4)
-  autoGrade              Boolean @default(true)  // false = lecturer grades manually, no auto-scoring
+  autoGrade              Boolean @default(true)  // false = lecturer grades manually, no auto-scoring; hides Test Cases in the builder
   similarityCheckEnabled Boolean @default(false) // cross-student code-similarity screening
   similarityThreshold    Int     @default(70)    // 0-100, flag pairs at or above this
   requireManualReview    Boolean @default(false) // auto-scores stay unreleased until the lecturer approves
@@ -248,10 +283,11 @@ model ProgrammingAssignment {
 }
 
 model TestCase {
-  id             String  @id @default(cuid())
+  id             String       @id @default(cuid())
+  kind           TestCaseKind @default(CONSOLE)
   title          String?
-  input          String  @db.Text
-  expectedOutput String  @db.Text
+  input          String       @db.Text // CONSOLE: stdin. FUNCTION: JSON-encoded argument array, e.g. "[5, 8]"
+  expectedOutput String       @db.Text // CONSOLE: expected stdout. FUNCTION: JSON-encoded expected return value
   isHidden       Boolean @default(false) // hidden = not shown to student
   points         Int     @default(1)
   order          Int     @default(0)
@@ -263,6 +299,24 @@ model TestCase {
 
   @@index([programmingAssignmentId])
   @@map("test_cases")
+}
+
+// ── PROJECT ASSIGNMENT ("Programming Project") ────────────────────────────────
+
+model ProjectAssignment {
+  id                     String  @id @default(cuid())
+  brief                  String  @db.Text // project overview shown to students
+  functionalRequirements String  @db.Text // one requirement per line
+  deliverables           String  @db.Text // one deliverable per line
+  rubric                 String  @db.Text
+  githubRequired         Boolean @default(false)
+  allowedFileTypes       String[] @default(["zip", "pdf"])
+  maxFileSizeMB          Int      @default(25)
+
+  assignmentId String     @unique
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@map("project_assignments")
 }
 
 // ── QUIZ ASSIGNMENT ───────────────────────────────────────────────────────────
@@ -466,12 +520,13 @@ model ShortAnswerSubmission {
 // ── FILE SUBMISSION ───────────────────────────────────────────────────────────
 
 model FileSubmission {
-  id            String @id @default(cuid())
-  fileName      String // stored filename
-  originalName  String // original filename from user
-  fileUrl       String // Vercel Blob URL
-  fileType      String // mime type
+  id            String  @id @default(cuid())
+  fileName      String  // stored filename
+  originalName  String  // original filename from user
+  fileUrl       String  // Vercel Blob URL
+  fileType      String  // mime type
   fileSizeBytes Int
+  githubUrl     String? // optional repo link, for Programming Project submissions
 
   submissionId String     @unique
   submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
