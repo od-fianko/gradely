@@ -1,23 +1,27 @@
 import { ok, badRequest } from "@/lib/api/response";
 import { handleApiError } from "@/lib/errors/http-error";
 import { prisma } from "@/lib/db/prisma";
-import { registerSchema } from "@/features/auth/schemas/auth.schema";
-import bcrypt from "bcryptjs";
+import { startRegisterSchema } from "@/features/auth/schemas/auth.schema";
 import { generateOtpCode, hashOtpCode } from "@/lib/auth/otp";
 import { getEmailDomain, getUniversityNameFromDomain, isLikelyUniversityEmail, normalizeUniversityDomain } from "@/lib/university";
 import { sendMail } from "@/lib/email/mailer";
 
+/**
+ * Step 1 of registration: only an email address. Confirms ownership via a
+ * mailed OTP before anything else (name, password, level) is collected —
+ * matching how most professional signup flows verify email first.
+ */
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const parsed = registerSchema.safeParse(body);
+    const parsed = startRegisterSchema.safeParse(body);
     if (!parsed.success) return badRequest(parsed.error.errors[0].message);
 
-    const { name, email, password, level } = parsed.data;
+    const { email } = parsed.data;
     if (!isLikelyUniversityEmail(email)) return badRequest("Please use a valid university email address");
 
     const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) return badRequest("An account with this email already exists");
+    if (existing?.isVerified) return badRequest("An account with this email already exists. Try signing in instead.");
 
     const domain = normalizeUniversityDomain(getEmailDomain(email));
     const university = await prisma.university.upsert({
@@ -26,23 +30,29 @@ export async function POST(req: Request) {
       create: { domain, name: getUniversityNameFromDomain(domain) },
     });
 
-    const hashed = await bcrypt.hash(password, 12);
     const otp = generateOtpCode();
     const otpHash = hashOtpCode(otp);
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
-    await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashed,
-        level,
-        universityId: university.id,
-        isVerified: false,
-        verificationCodeHash: otpHash,
-        verificationCodeExpiresAt: expiresAt,
-      },
-    });
+    // Re-request on an existing-but-unverified email just refreshes the code
+    // rather than erroring — the person may have lost the first one.
+    if (existing) {
+      await prisma.user.update({
+        where: { email },
+        data: { verificationCodeHash: otpHash, verificationCodeExpiresAt: expiresAt, universityId: university.id },
+      });
+    } else {
+      await prisma.user.create({
+        data: {
+          email,
+          name: "", // filled in at step 3, once the email is verified
+          universityId: university.id,
+          isVerified: false,
+          verificationCodeHash: otpHash,
+          verificationCodeExpiresAt: expiresAt,
+        },
+      });
+    }
 
     const sent = await sendMail({
       to: email,
@@ -50,10 +60,8 @@ export async function POST(req: Request) {
       text: `Your verification code is ${otp}. It expires in 15 minutes.`,
       html: `<p>Your verification code is <strong>${otp}</strong>.</p><p>This code expires in 15 minutes.</p>`,
     });
-    // No SMTP configured (e.g. local dev) — surface the code in server logs so
-    // the verification flow is still usable instead of silently unreachable.
-    if (!sent) console.warn(`[register] SMTP not configured — verification code for ${email}: ${otp}`);
+    if (!sent) console.warn(`[register/start] SMTP not configured — verification code for ${email}: ${otp}`);
 
-    return ok({ email }, "Account created. Check your mail for the verification code.", 201);
+    return ok({ email }, "Verification code sent", 201);
   } catch (e) { return handleApiError(e); }
 }

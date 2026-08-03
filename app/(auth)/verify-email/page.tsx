@@ -35,6 +35,11 @@ function VerifyEmailForm() {
     const json = await res.json();
     setVerifying(false);
     if (!res.ok) { setError(json.error ?? "Verification failed"); return; }
+    if (json.data?.needsProfile) {
+      setMessage("Email verified — redirecting you to finish creating your account…");
+      setTimeout(() => router.push(`/register?email=${encodeURIComponent(email)}`), 1200);
+      return;
+    }
     setMessage("Email verified — redirecting you to sign in…");
     setTimeout(() => router.push("/login"), 1200);
   };

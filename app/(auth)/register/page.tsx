@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { RegisterForm } from "@/features/auth/components/register-form";
 
@@ -10,7 +11,9 @@ export default function RegisterPage() {
         <h2 className="text-2xl font-bold text-gray-900">Create your account</h2>
         <p className="text-sm text-muted-foreground mt-1">Join Gradely — learning made measurable</p>
       </div>
-      <RegisterForm />
+      <Suspense>
+        <RegisterForm />
+      </Suspense>
     </div>
   );
 }

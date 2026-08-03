@@ -94,6 +94,7 @@ model User {
   image     String?
   role      Role     @default(STUDENT)
   level     Int?
+  program   String?
   isVerified Boolean @default(false)
   verificationCodeHash String?
   verificationCodeExpiresAt DateTime?

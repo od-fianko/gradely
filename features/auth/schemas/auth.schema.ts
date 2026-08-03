@@ -5,11 +5,18 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
-export const registerSchema = z
+// Step 1 — email only. Ownership is confirmed via OTP before anything else is collected.
+export const startRegisterSchema = z.object({
+  email: z.string().email("Enter a valid email address"),
+});
+
+// Step 3 — collected only after the email has been OTP-verified.
+export const completeRegisterSchema = z
   .object({
+    email: z.string().email(),
     name: z.string().min(2, "Name must be at least 2 characters"),
-    email: z.string().email("Enter a valid email address"),
-    level: z.coerce.number().int().min(100).max(900).optional(),
+    level: z.coerce.number().int().min(100).max(900),
+    program: z.string().max(120).optional(),
     password: z
       .string()
       .min(8, "Password must be at least 8 characters")
@@ -22,5 +29,12 @@ export const registerSchema = z
     path: ["confirmPassword"],
   });
 
+export const verifyCodeSchema = z.object({
+  email: z.string().email(),
+  code: z.string().length(6, "Enter the 6-digit code"),
+});
+
 export type LoginSchema = z.infer<typeof loginSchema>;
-export type RegisterSchema = z.infer<typeof registerSchema>;
+export type StartRegisterSchema = z.infer<typeof startRegisterSchema>;
+export type CompleteRegisterSchema = z.infer<typeof completeRegisterSchema>;
+export type VerifyCodeSchema = z.infer<typeof verifyCodeSchema>;
