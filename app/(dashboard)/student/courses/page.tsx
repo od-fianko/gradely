@@ -23,26 +23,25 @@ export default async function StudentCoursesPage() {
     },
     orderBy: { enrolledAt: "desc" },
   });
-
   const enrolledCourses = enrolled.map((e) => e.course);
   const enrolledIds = new Set(enrolledCourses.map((c) => c.id));
 
   const allActive = await prisma.course.findMany({
-    where:   { isActive: true, id: { notIn: [...enrolledIds] } },
-    include: {
-      lecturer: { select: { name: true, email: true } },
-      _count:   { select: { enrollments: true, assignments: true } },
+    where: {
+      isActive: true,
+      id: { notIn: [...enrolledIds] },
+      universityId: session.user.universityId ?? undefined,
+      level: session.user.level ?? undefined,
     },
+    include: { lecturer: { select: { name: true, email: true } }, _count: { select: { enrollments: true, assignments: true } } },
     orderBy: { createdAt: "desc" },
   });
 
   return (
     <div className="space-y-6 animate-fade-in">
-
       <div>
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <BookOpen className="h-6 w-6 text-blue-500" />
-          Courses
+          <BookOpen className="h-6 w-6 text-blue-500" />Courses
         </h1>
         <p className="text-sm text-muted-foreground mt-0.5">
           Enrolled in {enrolledCourses.length} course{enrolledCourses.length !== 1 ? "s" : ""}
@@ -54,7 +53,6 @@ export default async function StudentCoursesPage() {
           <TabsTrigger value="enrolled">My Courses ({enrolledCourses.length})</TabsTrigger>
           <TabsTrigger value="explore">Explore ({allActive.length})</TabsTrigger>
         </TabsList>
-
         <TabsContent value="enrolled">
           {enrolledCourses.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -66,13 +64,10 @@ export default async function StudentCoursesPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {enrolledCourses.map((c) => (
-                <CourseCard key={c.id} course={c} role="STUDENT" />
-              ))}
+              {enrolledCourses.map((c) => <CourseCard key={c.id} course={c} role="STUDENT" />)}
             </div>
           )}
         </TabsContent>
-
         <TabsContent value="explore">
           <ExploreCourses courses={allActive} />
         </TabsContent>

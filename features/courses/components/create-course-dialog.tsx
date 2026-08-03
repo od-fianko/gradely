@@ -32,7 +32,7 @@ export function CreateCourseDialog() {
 
   const form = useForm<CreateCourseSchema>({
     resolver: zodResolver(createCourseSchema),
-    defaultValues: { code: "", title: "", description: "", semester: "" },
+    defaultValues: { code: "", title: "", description: "", semester: "", level: 100 },
   });
 
   const onSubmit = async (data: CreateCourseSchema) => {
@@ -83,6 +83,14 @@ export function CreateCourseDialog() {
                 </FormItem>
               )} />
             </div>
+
+            <FormField control={form.control} name="level" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Level</FormLabel>
+                <FormControl><Input type="number" min={100} max={900} placeholder="100" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
 
             <FormField control={form.control} name="title" render={({ field }) => (
               <FormItem>

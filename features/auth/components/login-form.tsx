@@ -37,6 +37,10 @@ export function LoginForm() {
       redirect: false,
     });
 
+    if (result?.error === "not_verified") {
+      router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
+      return;
+    }
     if (result?.error) {
       setServerError("Invalid email or password. Please try again.");
       return;

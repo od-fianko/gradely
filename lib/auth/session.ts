@@ -8,18 +8,14 @@ export const getSession = cache(async () => auth());
 export async function requireAuth() {
   const session = await getSession();
   if (!session?.user) redirect("/login");
+  if (!session.user.isVerified) redirect("/verify-email");
   return session;
 }
 
 export async function requireRole(role: Role) {
   const session = await requireAuth();
   if (session.user.role !== role) {
-    const dashboard =
-      session.user.role === "ADMIN"
-        ? "/admin"
-        : session.user.role === "LECTURER"
-        ? "/lecturer"
-        : "/student";
+    const dashboard = session.user.role === "ADMIN" ? "/admin" : session.user.role === "LECTURER" ? "/lecturer" : "/student";
     redirect(dashboard);
   }
   return session;

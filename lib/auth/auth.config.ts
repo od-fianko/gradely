@@ -6,22 +6,26 @@ export const authConfig: NextAuthConfig = {
   callbacks: {
     jwt({ token, user }) {
       if (user) {
-        token.id   = user.id ?? "";
-        token.role = (user as { role?: Role }).role ?? "STUDENT";
+        const u = user as { role?: Role; isVerified?: boolean; universityId?: string | null; level?: number | null };
+        token.id = user.id ?? "";
+        token.role = u.role ?? "STUDENT";
+        token.isVerified = u.isVerified ?? true;
+        token.universityId = u.universityId ?? null;
+        token.level = u.level ?? null;
       }
       return token;
     },
     session({ session, token }) {
       if (token) {
-        session.user.id   = token.id   as string;
+        session.user.id = token.id as string;
         session.user.role = token.role as Role;
+        session.user.isVerified = Boolean(token.isVerified);
+        session.user.universityId = (token.universityId as string | null) ?? null;
+        session.user.level = (token.level as number | null) ?? null;
       }
       return session;
     },
   },
-  pages: {
-    signIn: "/login",
-    error:  "/login",
-  },
+  pages: { signIn: "/login", error: "/login" },
   session: { strategy: "jwt" },
 };

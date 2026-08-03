@@ -8,27 +8,39 @@ async function main() {
 
   const hashedPassword = await bcrypt.hash("password123", 12);
 
+  // Dev accounts bypass the real registration/verification flow, so they're
+  // seeded pre-verified and pre-linked to a university.
+  const university = await prisma.university.upsert({
+    where: { domain: "gradely.edu" },
+    update: {},
+    create: { domain: "gradely.edu", name: "Gradely University" },
+  });
+
   // Admin
   const admin = await prisma.user.upsert({
     where: { email: "admin@gradely.edu" },
-    update: {},
+    update: { isVerified: true, universityId: university.id },
     create: {
       email: "admin@gradely.edu",
       name: "System Admin",
       password: hashedPassword,
       role: Role.ADMIN,
+      isVerified: true,
+      universityId: university.id,
     },
   });
 
   // Lecturer
   const lecturer = await prisma.user.upsert({
     where: { email: "dr.mensah@gradely.edu" },
-    update: {},
+    update: { isVerified: true, universityId: university.id },
     create: {
       email: "dr.mensah@gradely.edu",
       name: "Dr. Kwame Mensah",
       password: hashedPassword,
       role: Role.LECTURER,
+      isVerified: true,
+      universityId: university.id,
     },
   });
 
@@ -41,8 +53,8 @@ async function main() {
     ].map((s) =>
       prisma.user.upsert({
         where: { email: s.email },
-        update: {},
-        create: { ...s, password: hashedPassword, role: Role.STUDENT },
+        update: { isVerified: true, universityId: university.id, level: 300 },
+        create: { ...s, password: hashedPassword, role: Role.STUDENT, isVerified: true, universityId: university.id, level: 300 },
       })
     )
   );
@@ -56,7 +68,9 @@ async function main() {
       title: "Data Structures and Algorithms",
       description: "Fundamental data structures and algorithmic techniques.",
       semester: "2024/2025 Sem 1",
+      level: 300,
       lecturerId: lecturer.id,
+      universityId: university.id,
     },
   });
 

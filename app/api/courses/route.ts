@@ -8,16 +8,14 @@ export async function GET() {
   try {
     const session = await auth();
     if (!session?.user) return unauthorized();
-    const { id, role } = session.user;
+    const { id, role, universityId, level } = session.user;
 
     const courses = await prisma.course.findMany({
-      where: role === "LECTURER" ? { lecturerId: id }
-           : role === "STUDENT"  ? { enrollments: { some: { studentId: id } } }
-           : undefined,
-      include: {
-        lecturer: { select: { name: true, email: true } },
-        _count:   { select: { enrollments: true, assignments: true } },
-      },
+      where:
+        role === "LECTURER" ? { lecturerId: id, universityId: universityId ?? undefined }
+        : role === "STUDENT" ? { enrollments: { some: { studentId: id } }, universityId: universityId ?? undefined, level: level ?? undefined }
+        : undefined,
+      include: { lecturer: { select: { name: true, email: true } }, _count: { select: { enrollments: true, assignments: true } } },
       orderBy: { createdAt: "desc" },
     });
     return ok(courses);
@@ -28,8 +26,7 @@ export async function POST(req: Request) {
   try {
     const session = await auth();
     if (!session?.user) return unauthorized();
-    if (session.user.role !== "LECTURER" && session.user.role !== "ADMIN")
-      return forbidden("Only lecturers can create courses");
+    if (session.user.role !== "LECTURER" && session.user.role !== "ADMIN") return forbidden("Only lecturers can create courses");
 
     const body = await req.json();
     const parsed = createCourseSchema.safeParse(body);
@@ -37,10 +34,9 @@ export async function POST(req: Request) {
 
     const existing = await prisma.course.findUnique({ where: { code: parsed.data.code } });
     if (existing) return badRequest(`Course code ${parsed.data.code} already exists`);
+    if (!session.user.universityId) return badRequest("Your account is not linked to a university");
 
-    const course = await prisma.course.create({
-      data: { ...parsed.data, lecturerId: session.user.id },
-    });
+    const course = await prisma.course.create({ data: { ...parsed.data, lecturerId: session.user.id, universityId: session.user.universityId } });
     return ok(course, "Course created", 201);
   } catch (e) { return handleApiError(e); }
 }
