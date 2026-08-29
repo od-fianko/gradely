@@ -410,20 +410,7 @@ export function CodingWorkspace({ assignment: a, submissionId, initialCode, dead
           </div>
         </section>
 
-        {/* AI Tutor — collapsed to a slim rail by default, like Edge's Copilot */}
-        {!tutorOpen && (
-          <button
-            onClick={openTutor}
-            title="Ask AI Tutor"
-            className="w-12 shrink-0 border-l bg-slate-900 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors flex flex-col items-center gap-2 pt-4"
-          >
-            <div className="relative">
-              <Sparkles className="h-5 w-5 text-primary" />
-              {chat.length > 0 && <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-primary" />}
-            </div>
-            <span className="text-[10px] font-medium [writing-mode:vertical-rl] rotate-180 tracking-wide">AI TUTOR</span>
-          </button>
-        )}
+        {/* AI Tutor — a small floating button when closed, like Edge's Copilot toggle */}
         {tutorOpen && (
         <aside className="w-full max-w-sm shrink-0 border-l flex flex-col bg-slate-900 text-slate-200">
           <div className="h-12 shrink-0 flex items-center gap-2 px-4 border-b border-slate-800">
@@ -493,6 +480,20 @@ export function CodingWorkspace({ assignment: a, submissionId, initialCode, dead
         </aside>
         )}
       </div>
+
+      {!tutorOpen && (
+        <button
+          onClick={openTutor}
+          title="Ask AI Tutor"
+          className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-slate-900 text-white pl-3 pr-4 py-2.5 shadow-lg hover:bg-slate-800 transition-colors"
+        >
+          <span className="relative flex h-5 w-5 items-center justify-center">
+            <Sparkles className="h-4 w-4 text-primary" />
+            {chat.length > 0 && <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-primary" />}
+          </span>
+          <span className="text-sm font-medium">AI Tutor</span>
+        </button>
+      )}
     </div>
   );
 }
