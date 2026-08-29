@@ -5,11 +5,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, Loader2, AlertCircle, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { loginSchema, type LoginSchema } from "@/features/auth/schemas/auth.schema";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Form,
   FormControl,
@@ -19,10 +17,17 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 
+const DEMO_ACCOUNTS = [
+  { role: "Admin",    email: "admin@gradely.edu" },
+  { role: "Lecturer", email: "dr.mensah@gradely.edu" },
+  { role: "Student",  email: "alice@student.gradely.edu" },
+];
+
 export function LoginForm() {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [demoOpen, setDemoOpen] = useState(false);
 
   const form = useForm<LoginSchema>({
     resolver: zodResolver(loginSchema),
@@ -53,121 +58,116 @@ export function LoginForm() {
   const isLoading = form.formState.isSubmitting;
 
   return (
-    <div className="rounded-2xl border bg-card/80 backdrop-blur-sm p-8 shadow-xl shadow-blue-100/50">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Welcome back</h2>
-        <p className="text-sm text-muted-foreground mt-1">Sign in to your Gradely account</p>
-      </div>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+        {serverError && (
+          <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+            <p className="text-sm text-red-700">{serverError}</p>
+          </div>
+        )}
 
-          {/* Server error */}
-          {serverError && (
-            <div className="flex items-start gap-3 rounded-xl bg-red-50 border border-red-200 px-4 py-3 animate-slide-up">
-              <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
-              <p className="text-sm text-red-700">{serverError}</p>
-            </div>
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-[12.5px] font-semibold text-zinc-700">Email address</FormLabel>
+              <FormControl>
+                <input
+                  type="email"
+                  placeholder="you@university.edu"
+                  autoComplete="email"
+                  disabled={isLoading}
+                  className="w-full rounded-[9px] border border-zinc-300 bg-white px-[13px] py-[11px] text-sm text-zinc-900 placeholder:text-zinc-400 transition-colors focus:border-primary focus:outline-none focus:ring-[3px] focus:ring-primary/10"
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
           )}
+        />
 
-          {/* Email */}
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-gray-700 font-medium">Email address</FormLabel>
-                <FormControl>
-                  <Input
-                    type="email"
-                    placeholder="you@university.edu"
-                    autoComplete="email"
+        <FormField
+          control={form.control}
+          name="password"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-[12.5px] font-semibold text-zinc-700">Password</FormLabel>
+              <FormControl>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter your password"
+                    autoComplete="current-password"
                     disabled={isLoading}
-                    className="h-11 transition-all duration-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    className="w-full rounded-[9px] border border-zinc-300 bg-white px-[13px] py-[11px] pr-10 text-sm text-zinc-900 placeholder:text-zinc-400 transition-colors focus:border-primary focus:outline-none focus:ring-[3px] focus:ring-primary/10"
                     {...field}
                   />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 transition-colors hover:text-zinc-600"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-          {/* Password */}
-          <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-gray-700 font-medium">Password</FormLabel>
-                <FormControl>
-                  <div className="relative">
-                    <Input
-                      type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      autoComplete="current-password"
-                      disabled={isLoading}
-                      className="h-11 pr-10 transition-all duration-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                      {...field}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((v) => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                      tabIndex={-1}
-                    >
-                      {showPassword
-                        ? <EyeOff className="h-4 w-4" />
-                        : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="w-full rounded-[9px] bg-primary py-3 text-[14.5px] font-bold text-white shadow-sm transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:bg-zinc-300"
+        >
+          {isLoading ? (
+            <span className="flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Signing in…</span>
+          ) : (
+            "Sign in"
+          )}
+        </button>
 
-          {/* Submit */}
-          <Button
-            type="submit"
-            className="w-full h-11 font-medium"
-            disabled={isLoading}
+        {/* Demo accounts */}
+        <div>
+          <button
+            type="button"
+            onClick={() => setDemoOpen((v) => !v)}
+            className="flex w-full items-center justify-between rounded-lg px-0.5 py-2 text-left"
           >
-            {isLoading ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Signing in…</>
-            ) : (
-              "Sign in"
-            )}
-          </Button>
+            <span className="text-[11.5px] font-bold uppercase tracking-wider text-zinc-400">Demo accounts</span>
+            <ChevronDown className={`h-3.5 w-3.5 text-zinc-400 transition-transform ${demoOpen ? "rotate-180" : ""}`} />
+          </button>
+          {demoOpen && (
+            <div className="mt-0.5 rounded-[10px] border border-zinc-200 bg-zinc-50 p-2.5">
+              {DEMO_ACCOUNTS.map(({ role, email }) => (
+                <button
+                  key={email}
+                  type="button"
+                  onClick={() => {
+                    form.setValue("email", email);
+                    form.setValue("password", "password123");
+                    setDemoOpen(false);
+                  }}
+                  className="flex w-full items-center justify-between rounded-md px-1 py-1.5 text-left transition-colors hover:bg-zinc-100"
+                >
+                  <span className="text-[12.5px] text-zinc-700"><span className="font-semibold">{role}:</span> {email}</span>
+                  <span className="text-[11px] text-zinc-400">Click to fill</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
-          {/* Dev helper */}
-          <div className="rounded-xl border border-dashed border-border bg-muted/60 px-4 py-3 space-y-1">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Dev accounts</p>
-            {[
-              ["Admin",    "admin@gradely.edu"],
-              ["Lecturer", "dr.mensah@gradely.edu"],
-              ["Student",  "alice@student.gradely.edu"],
-            ].map(([role, email]) => (
-              <button
-                key={email}
-                type="button"
-                onClick={() => {
-                  form.setValue("email", email);
-                  form.setValue("password", "password123");
-                }}
-                className="block w-full text-left text-xs text-muted-foreground hover:text-blue-600 transition-colors py-0.5"
-              >
-                <span className="font-medium">{role}:</span> {email}
-              </button>
-            ))}
-            <p className="text-xs text-slate-400 pt-0.5">Click any account to auto-fill</p>
-          </div>
-
-          <p className="text-center text-sm text-muted-foreground">
-            Don&apos;t have an account?{" "}
-            <Link href="/register" className="text-blue-600 font-medium hover:underline">Sign up</Link>
-          </p>
-        </form>
-      </Form>
-    </div>
+        <p className="pt-1 text-center text-[13.5px] text-zinc-500">
+          Don&apos;t have an account?{" "}
+          <Link href="/register" className="font-semibold text-primary hover:text-primary/80">Sign up</Link>
+        </p>
+      </form>
+    </Form>
   );
 }

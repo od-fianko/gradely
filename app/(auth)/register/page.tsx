@@ -1,19 +1,19 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { RegisterForm } from "@/features/auth/components/register-form";
+import { AuthTabs } from "@/features/auth/components/auth-tabs";
 
-export const metadata: Metadata = { title: "Register — Gradely" };
+export const metadata: Metadata = { title: "Create account — Gradely" };
 
 export default function RegisterPage() {
   return (
-    <div className="rounded-2xl border bg-card/80 backdrop-blur-sm p-8 shadow-xl shadow-blue-100/50">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Create your account</h2>
-        <p className="text-sm text-muted-foreground mt-1">Join Gradely — learning made measurable</p>
+    <div>
+      <AuthTabs />
+      <div className="rounded-2xl border border-zinc-200 bg-white px-7 py-[30px] shadow-[0_1px_3px_rgba(16,24,40,.04),0_12px_32px_-12px_rgba(16,24,40,.10)]">
+        <Suspense>
+          <RegisterForm />
+        </Suspense>
       </div>
-      <Suspense>
-        <RegisterForm />
-      </Suspense>
     </div>
   );
 }

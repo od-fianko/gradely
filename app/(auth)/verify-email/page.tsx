@@ -4,8 +4,6 @@ import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Loader2, MailCheck } from "lucide-react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 export default function VerifyEmailPage() {
   return (
@@ -14,6 +12,11 @@ export default function VerifyEmailPage() {
     </Suspense>
   );
 }
+
+const inputClass = "w-full rounded-[9px] border border-zinc-300 bg-white px-[13px] py-[11px] text-sm text-zinc-900 placeholder:text-zinc-400 transition-colors focus:border-primary focus:outline-none focus:ring-[3px] focus:ring-primary/10";
+const labelClass = "text-[12.5px] font-semibold text-zinc-700";
+const primaryButtonClass = "w-full rounded-[9px] bg-primary py-3 text-[14.5px] font-bold text-white shadow-sm transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:bg-zinc-300";
+const secondaryButtonClass = "w-full rounded-[9px] border border-zinc-300 bg-white py-3 text-[14.5px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50";
 
 function VerifyEmailForm() {
   const router = useRouter();
@@ -58,50 +61,50 @@ function VerifyEmailForm() {
   };
 
   return (
-    <div className="rounded-2xl border bg-card/80 backdrop-blur-sm p-8 shadow-xl shadow-blue-100/50">
-      <div className="mb-6 flex flex-col items-center text-center gap-2">
-        <div className="rounded-full bg-primary/10 p-3">
-          <MailCheck className="h-6 w-6 text-primary" />
+    <div className="rounded-2xl border border-zinc-200 bg-white px-7 py-[30px] shadow-[0_1px_3px_rgba(16,24,40,.04),0_12px_32px_-12px_rgba(16,24,40,.10)]">
+      <div className="mb-5 flex flex-col items-center gap-2 text-center">
+        <div className="rounded-full bg-primary/10 p-2.5">
+          <MailCheck className="h-5 w-5 text-primary" />
         </div>
-        <h2 className="text-2xl font-bold text-gray-900">Verify your email</h2>
-        <p className="text-sm text-muted-foreground">
-          We sent a 6-digit code to your university email. Enter it below to activate your account.
+        <h1 className="text-[19px] font-bold text-zinc-900">Verify your email</h1>
+        <p className="text-[13.5px] text-zinc-500">
+          Enter the code sent to your university email to activate your account.
         </p>
       </div>
 
       <div className="space-y-4">
         {error && (
-          <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{error}</p>
+          <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
         )}
         {message && (
-          <p className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">{message}</p>
+          <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</p>
         )}
 
         <div>
-          <label className="text-sm font-medium text-gray-700">University email</label>
-          <Input type="email" placeholder="you@university.edu" value={email}
-            onChange={(e) => setEmail(e.target.value)} className="h-11 mt-1.5" disabled={verifying || resending} />
+          <label className={labelClass}>University email</label>
+          <input type="email" placeholder="you@university.edu" value={email}
+            onChange={(e) => setEmail(e.target.value)} className={`${inputClass} mt-1.5`} disabled={verifying || resending} />
         </div>
 
         <div>
-          <label className="text-sm font-medium text-gray-700">Verification code</label>
-          <Input placeholder="123456" value={code} maxLength={6}
+          <label className={labelClass}>Verification code</label>
+          <input placeholder="123456" value={code} maxLength={6}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-            className="h-11 mt-1.5 tracking-widest font-mono text-center" disabled={verifying || resending} />
+            className={`${inputClass} mt-1.5 text-center font-mono tracking-[0.3em]`} disabled={verifying || resending} />
         </div>
 
-        <Button onClick={verify} disabled={verifying || resending || !email || code.length !== 6} className="w-full h-11 font-medium">
-          {verifying ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Verifying…</> : "Verify email"}
-        </Button>
-        <Button variant="outline" onClick={resend} disabled={verifying || resending || !email} className="w-full h-11">
-          {resending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Resending…</> : "Resend code"}
-        </Button>
+        <button onClick={verify} disabled={verifying || resending || !email || code.length !== 6} className={primaryButtonClass}>
+          {verifying ? <span className="flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Verifying…</span> : "Verify email"}
+        </button>
+        <button onClick={resend} disabled={verifying || resending || !email} className={secondaryButtonClass}>
+          {resending ? <span className="flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Resending…</span> : "Resend code"}
+        </button>
 
-        <p className="text-center text-sm text-muted-foreground">
+        <p className="text-center text-[13.5px] text-zinc-500">
           Wrong account?{" "}
-          <Link href="/register" className="text-blue-600 font-medium hover:underline">Sign up again</Link>
+          <Link href="/register" className="font-semibold text-primary hover:text-primary/80">Sign up again</Link>
           {" · "}
-          <Link href="/login" className="text-blue-600 font-medium hover:underline">Back to sign in</Link>
+          <Link href="/login" className="font-semibold text-primary hover:text-primary/80">Back to sign in</Link>
         </p>
       </div>
     </div>
