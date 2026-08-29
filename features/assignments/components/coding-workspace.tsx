@@ -364,14 +364,23 @@ export function CodingWorkspace({ assignment: a, submissionId, initialCode, dead
             <div className="shrink-0 max-h-40 overflow-y-auto border-t border-black/30 bg-[#151515] p-3 space-y-1.5">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold text-slate-300">
-                  {runError ? "Error" : `${results!.filter((r) => r.passed).length}/${results!.length} tests passed`}
+                  {runError
+                    ? "Error"
+                    : results![0]?.testCaseId === "no-test-cases"
+                      ? "Program output"
+                      : `${results!.filter((r) => r.passed).length}/${results!.length} tests passed`}
                 </p>
                 <button onClick={() => { setResults(null); setRunError(null); }} className="text-slate-500 hover:text-slate-300">
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
               {runError && <p className="text-xs text-red-400">{runError}</p>}
-              {results?.map((r, i) => (
+              {results?.map((r, i) => r.testCaseId === "no-test-cases" ? (
+                <div key={r.testCaseId} className="text-xs rounded px-2 py-1.5 bg-slate-800 text-slate-200">
+                  <pre className="font-mono whitespace-pre-wrap">{r.actual || "(no output)"}</pre>
+                  {r.error && <div className="mt-1 pl-1 font-mono whitespace-pre-wrap text-red-400">{r.error}</div>}
+                </div>
+              ) : (
                 <div key={r.testCaseId} className={`text-xs rounded px-2 py-1.5 ${r.passed ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
                   <span className="font-semibold">{r.passed ? "PASS" : "FAIL"}</span> — {r.title ?? `Test ${i + 1}`}
                   {!r.passed && !r.error && <span className="ml-2 opacity-80">got: {r.actual || "(no output)"}</span>}

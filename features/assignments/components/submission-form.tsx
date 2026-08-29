@@ -2,18 +2,10 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, CheckCircle2, RefreshCw, Play, Upload, X, FileText, Timer } from "lucide-react";
+import { Loader2, CheckCircle2, RefreshCw, Upload, X, FileText, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 interface QuizQuestion {
   id: string; text: string; points: number; isMultiple: boolean;
@@ -27,7 +19,6 @@ interface Props {
     type:        string;
     totalMarks:  number;
     quizDetails: { questions: QuizQuestion[] } | null;
-    starterCode: string | null;
     projectDetails?: { githubRequired: boolean; allowedFileTypes: string[]; maxFileSizeMB: number } | null;
   };
   existing: {
@@ -35,17 +26,12 @@ interface Props {
     status: string;
     grade:  unknown | null;
     shortAnswerSubmission: { answer: string } | null;
-    codeSubmission:        { code: string; language: string } | null;
     quizSubmission:        { answers: { questionId: string; selectedOption: { id: string } | null; textAnswer?: string | null }[] } | null;
     fileSubmission:        { originalName: string; fileUrl: string; githubUrl?: string | null } | null;
   } | null;
   courseId: string;
   deadline?: string | null; // ISO — timed attempts auto-submit at this moment
 }
-
-type TestResult = { testCaseId: string; title: string | null; passed: boolean; actual: string; expected: string; points: number };
-
-const LANGUAGES = ["PYTHON", "JAVASCRIPT", "JAVA", "C"];
 
 export function SubmissionForm({ assignment, existing, courseId, deadline }: Props) {
   const router   = useRouter();
@@ -54,16 +40,10 @@ export function SubmissionForm({ assignment, existing, courseId, deadline }: Pro
   const [loading,  setLoading]  = useState(false);
   const [done,     setDone]     = useState(false);
   const [error,    setError]    = useState<string | null>(null);
-  const [running,  setRunning]  = useState(false);
-  const [results,  setResults]  = useState<TestResult[] | null>(null);
   const [uploading,setUploading] = useState(false);
 
   // Short answer
   const [answer, setAnswer] = useState(existing?.shortAnswerSubmission?.answer ?? "");
-
-  // Code — seed with starter code if there's no existing submission yet
-  const [code,     setCode]     = useState(existing?.codeSubmission?.code ?? assignment.starterCode ?? "");
-  const [language, setLanguage] = useState(existing?.codeSubmission?.language ?? "PYTHON");
 
   // File
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -116,20 +96,6 @@ export function SubmissionForm({ assignment, existing, courseId, deadline }: Pro
     return json.data as { url: string; fileName: string; originalName: string; fileType: string; fileSizeBytes: number };
   };
 
-  const runTests = async () => {
-    if (!existing?.id) { setError("Submit your code first before running tests"); return; }
-    setRunning(true); setError(null); setResults(null);
-    const res  = await fetch("/api/execute", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ submissionId: existing.id, code, language }),
-    });
-    const json = await res.json();
-    setRunning(false);
-    if (!res.ok) { setError(json.error ?? "Execution failed"); return; }
-    setResults(json.data.results);
-  };
-
   const submit = async () => {
     setLoading(true); setError(null);
     let body: Record<string, unknown> = {};
@@ -137,9 +103,6 @@ export function SubmissionForm({ assignment, existing, courseId, deadline }: Pro
     if (assignment.type === "SHORT_ANSWER") {
       if (!answer.trim()) { setError("Answer cannot be empty"); setLoading(false); return; }
       body = { answer };
-    } else if (assignment.type === "PROGRAMMING") {
-      if (!code.trim()) { setError("Code cannot be empty"); setLoading(false); return; }
-      body = { code, language };
     } else if (assignment.type === "MULTIPLE_CHOICE") {
       body = {
         answers: [
@@ -265,53 +228,6 @@ export function SubmissionForm({ assignment, existing, courseId, deadline }: Pro
           <Textarea rows={8} placeholder="Write your answer here…" value={answer}
             onChange={(e) => setAnswer(e.target.value)} disabled={loading}
             className="font-mono text-sm resize-y" />
-        )}
-
-        {/* ── PROGRAMMING ── */}
-        {assignment.type === "PROGRAMMING" && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <Select value={language} onValueChange={setLanguage}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {LANGUAGES.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Button variant="outline" size="sm" className="gap-2 text-violet-600 border-violet-200 hover:bg-violet-50"
-                onClick={runTests} disabled={running || !existing?.id}>
-                {running ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Running…</> : <><Play className="h-3.5 w-3.5" />Run Tests</>}
-              </Button>
-              {!existing?.id && <span className="text-xs text-muted-foreground">Save first to run tests</span>}
-            </div>
-
-            <Textarea rows={14} placeholder={`# Write your ${language} code here…`} value={code}
-              onChange={(e) => setCode(e.target.value)} disabled={loading}
-              className="font-mono text-sm bg-slate-950 text-emerald-400 border-slate-700 resize-y placeholder:text-slate-400" />
-
-            {results && (
-              <div className="space-y-1.5">
-                {results.map((r, i) => (
-                  <div key={r.testCaseId}
-                    className={`flex items-start gap-3 rounded-lg px-3 py-2 text-xs ${r.passed ? "bg-emerald-50 border border-emerald-200" : "bg-red-50 border border-red-200"}`}>
-                    <Badge className={`shrink-0 text-xs ${r.passed ? "bg-emerald-500" : "bg-red-500"}`}>
-                      {r.passed ? "PASS" : "FAIL"}
-                    </Badge>
-                    <div className="min-w-0">
-                      <p className="font-medium">{r.title ?? `Test ${i + 1}`} — {r.points} pt{r.points !== 1 ? "s" : ""}</p>
-                      {!r.passed && <p className="text-red-600 mt-0.5">Got: <code className="font-mono">{r.actual || "(no output)"}</code></p>}
-                    </div>
-                  </div>
-                ))}
-                <p className="text-xs text-muted-foreground pt-1">
-                  {results.filter((r) => r.passed).length}/{results.length} tests passed ·{" "}
-                  {results.filter((r) => r.passed).reduce((s, r) => s + r.points, 0)}/
-                  {results.reduce((s, r) => s + r.points, 0)} points
-                </p>
-              </div>
-            )}
-          </div>
         )}
 
         {/* ── MULTIPLE CHOICE ── */}

@@ -43,12 +43,33 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ assign
     if (session.user.role !== "LECTURER" && session.user.role !== "ADMIN") return forbidden();
     const { assignmentId } = await params;
 
-    const body = await req.json();
-    const { dueDate, ...rest } = body;
+    const existing = await prisma.assignment.findUnique({
+      where:  { id: assignmentId },
+      select: { course: { select: { lecturerId: true } } },
+    });
+    if (!existing) return notFound("Assignment");
+    if (session.user.role !== "ADMIN" && existing.course.lecturerId !== session.user.id) return forbidden();
 
+    const body = await req.json();
+    const { dueDate, programmingDetails, projectDetails, shortAnswerDetails, fileUploadDetails, quizDetails, ...rest } = body;
+
+    // Editing is allowed at any time, including after publish — lecturers
+    // routinely need to extend a deadline, fix a typo, or clarify a rubric
+    // once students are already working on it. Only flat/scalar fields on
+    // each type's detail table are editable here; per-question and
+    // per-test-case content isn't (that needs submission-integrity-aware
+    // handling this endpoint doesn't attempt).
     const updated = await prisma.assignment.update({
       where: { id: assignmentId },
-      data: { ...rest, ...(dueDate && { dueDate: new Date(dueDate) }) },
+      data: {
+        ...rest,
+        ...(dueDate && { dueDate: new Date(dueDate) }),
+        ...(programmingDetails && { programmingDetails: { update: programmingDetails } }),
+        ...(projectDetails && { projectDetails: { update: projectDetails } }),
+        ...(shortAnswerDetails && { shortAnswerDetails: { update: shortAnswerDetails } }),
+        ...(fileUploadDetails && { fileUploadDetails: { update: fileUploadDetails } }),
+        ...(quizDetails && { quizDetails: { update: quizDetails } }),
+      },
     });
     return ok(updated);
   } catch (e) { return handleApiError(e); }

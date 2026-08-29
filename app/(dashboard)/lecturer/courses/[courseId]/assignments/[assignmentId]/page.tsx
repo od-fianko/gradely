@@ -4,8 +4,9 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { format } from "date-fns";
-import { Clock, Users, CheckCircle2, AlertCircle } from "lucide-react";
+import { Clock, Users, CheckCircle2, AlertCircle, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { MarkdownText } from "@/features/assignments/components/markdown-text";
 import { PublishToggle } from "@/features/assignments/components/publish-toggle";
@@ -93,7 +94,14 @@ export default async function LecturerAssignmentDetailPage({
             · {assignment.totalMarks} marks
           </p>
         </div>
-        <PublishToggle assignmentId={assignment.id} isPublished={assignment.isPublished} courseId={courseId} />
+        <div className="flex items-center gap-2 shrink-0">
+          <Button asChild variant="outline" size="sm" className="gap-1.5">
+            <Link href={`/lecturer/courses/${courseId}/assignments/${assignmentId}/edit`}>
+              <Pencil className="h-3.5 w-3.5" /> Edit
+            </Link>
+          </Button>
+          <PublishToggle assignmentId={assignment.id} isPublished={assignment.isPublished} courseId={courseId} />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

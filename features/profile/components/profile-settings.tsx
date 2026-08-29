@@ -3,23 +3,31 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Loader2, Sun, Moon, User, KeyRound, Palette, CheckCircle2 } from "lucide-react";
+import { Loader2, Sun, Moon, User, KeyRound, Palette, CheckCircle2, GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { format } from "date-fns";
 
 interface Props {
-  user: { name: string; email: string; role: string };
+  user: {
+    name: string; email: string; role: string;
+    level: number | null; program: string | null; university: string | null;
+    memberSince: Date | string | null;
+  };
 }
 
 export function ProfileSettings({ user }: Props) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
+  const isStudent = user.role === "STUDENT";
 
-  // Name
+  // Profile fields
   const [name,        setName]        = useState(user.name);
-  const [nameSaving,  setNameSaving]  = useState(false);
-  const [nameMsg,     setNameMsg]     = useState<string | null>(null);
+  const [level,       setLevel]       = useState(user.level != null ? String(user.level) : "");
+  const [program,     setProgram]     = useState(user.program ?? "");
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMsg,    setProfileMsg]    = useState<string | null>(null);
 
   // Password
   const [currentPw, setCurrentPw] = useState("");
@@ -27,16 +35,23 @@ export function ProfileSettings({ user }: Props) {
   const [pwSaving,  setPwSaving]  = useState(false);
   const [pwMsg,     setPwMsg]     = useState<{ ok: boolean; text: string } | null>(null);
 
-  const saveName = async () => {
-    setNameSaving(true); setNameMsg(null);
+  const dirty = name.trim() !== user.name
+    || (isStudent && level !== (user.level != null ? String(user.level) : ""))
+    || (isStudent && program.trim() !== (user.program ?? ""));
+
+  const saveProfile = async () => {
+    setProfileSaving(true); setProfileMsg(null);
     const res  = await fetch("/api/profile", {
       method:  "PATCH",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ name }),
+      body:    JSON.stringify({
+        name,
+        ...(isStudent && { level: level ? Number(level) : null, program: program.trim() || null }),
+      }),
     });
     const json = await res.json();
-    setNameSaving(false);
-    setNameMsg(res.ok ? "Saved" : (json.error ?? "Failed to save"));
+    setProfileSaving(false);
+    setProfileMsg(res.ok ? "Saved" : (json.error ?? "Failed to save"));
     if (res.ok) router.refresh();
   };
 
@@ -70,18 +85,44 @@ export function ProfileSettings({ user }: Props) {
         <CardContent className="space-y-4">
           <div>
             <label className="text-sm font-medium">Display name</label>
-            <div className="flex gap-2 mt-1.5">
-              <Input value={name} onChange={(e) => setName(e.target.value)} className="max-w-sm" />
-              <Button onClick={saveName} disabled={nameSaving || name.trim() === user.name} className="gap-1.5">
-                {nameSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Save
-              </Button>
-            </div>
-            {nameMsg && <p className="text-xs text-muted-foreground mt-1.5">{nameMsg}</p>}
+            <Input value={name} onChange={(e) => setName(e.target.value)} className="mt-1.5 max-w-sm" />
           </div>
-          <div className="grid gap-1 text-sm">
+
+          {isStudent && (
+            <div className="grid grid-cols-2 gap-4 max-w-sm">
+              <div>
+                <label className="text-sm font-medium">Level</label>
+                <Input type="number" min={100} max={900} placeholder="e.g. 300" value={level}
+                  onChange={(e) => setLevel(e.target.value)} className="mt-1.5" />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Program <span className="text-muted-foreground font-normal">(optional)</span></label>
+                <Input placeholder="Computer Science" value={program}
+                  onChange={(e) => setProgram(e.target.value)} className="mt-1.5" />
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <Button onClick={saveProfile} disabled={profileSaving || !dirty} className="gap-1.5">
+              {profileSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Save
+            </Button>
+            {profileMsg && <p className="text-xs text-muted-foreground">{profileMsg}</p>}
+          </div>
+
+          <div className="grid gap-1 text-sm pt-3 border-t">
             <p><span className="text-muted-foreground">Email:</span> {user.email}</p>
             <p><span className="text-muted-foreground">Role:</span> {user.role.charAt(0) + user.role.slice(1).toLowerCase()}</p>
+            {user.university && (
+              <p className="flex items-center gap-1.5">
+                <GraduationCap className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-muted-foreground">University:</span> {user.university}
+              </p>
+            )}
+            {user.memberSince && (
+              <p><span className="text-muted-foreground">Member since:</span> {format(new Date(user.memberSince), "MMMM yyyy")}</p>
+            )}
           </div>
         </CardContent>
       </Card>

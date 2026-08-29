@@ -3,14 +3,19 @@ import { ok, unauthorized, forbidden, badRequest } from "@/lib/api/response";
 import { handleApiError } from "@/lib/errors/http-error";
 import { prisma } from "@/lib/db/prisma";
 
-const PISTON_URL = process.env.PISTON_API_URL ?? "https://emkc.org/api/v2/piston";
+// The Piston public API (emkc.org) went whitelist-only in Feb 2026, so all
+// code execution moved to paiza.io's runner API instead. It's free and needs
+// no signup (the "guest" key), but is rate-limited — fine for a classroom,
+// but get a real paiza.io API key and swap PAIZA_API_KEY if that becomes
+// a bottleneck.
+const PAIZA_API_KEY = process.env.PAIZA_API_KEY ?? "guest";
 
-const LANG_MAP: Record<string, { language: string; version: string }> = {
-  PYTHON:     { language: "python",     version: "3.10.0" },
-  JAVASCRIPT: { language: "javascript", version: "18.15.0" },
-  JAVA:       { language: "java",       version: "15.0.2"  },
-  C:          { language: "c",          version: "10.2.0"  },
-  CPP:        { language: "c++",        version: "10.2.0"  },
+const LANG_MAP: Record<string, string> = {
+  PYTHON:     "python3",
+  JAVASCRIPT: "javascript",
+  JAVA:       "java",
+  C:          "c",
+  CPP:        "cpp",
 };
 
 /** Function-based testing (args -> return value) is only wired up for
@@ -31,6 +36,36 @@ function buildFunctionHarness(language: string, functionName: string, argsJson: 
 function jsonEquivalent(a: string, b: string): boolean {
   try { return JSON.stringify(JSON.parse(a)) === JSON.stringify(JSON.parse(b)); }
   catch { return a.trim() === b.trim(); }
+}
+
+interface RunOutcome { stdout: string; stderr: string; timedOut: boolean }
+
+/** paiza.io's runner API is async: submit, then poll get_details until it
+ *  reports "completed". Polled sequentially (not in parallel across test
+ *  cases) to stay well under the guest key's rate limit. */
+async function runOnPaiza(language: string, sourceCode: string, stdin: string): Promise<RunOutcome> {
+  const createRes = await fetch("https://api.paiza.io/runners/create", {
+    method:  "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body:    new URLSearchParams({ source_code: sourceCode, language, input: stdin, api_key: PAIZA_API_KEY }),
+  });
+  const created = await createRes.json() as { id?: string; error?: string };
+  if (!created.id) return { stdout: "", stderr: created.error ?? "Failed to submit code for execution", timedOut: false };
+
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 700));
+    const detailsRes = await fetch(`https://api.paiza.io/runners/get_details?id=${created.id}&api_key=${PAIZA_API_KEY}`);
+    const details = await detailsRes.json() as {
+      status?: string; stdout?: string | null; stderr?: string | null;
+      build_stderr?: string | null; result?: string;
+    };
+    if (details.status === "completed") {
+      const stderr = [details.build_stderr, details.stderr].filter(Boolean).join("\n").trim();
+      return { stdout: details.stdout ?? "", stderr, timedOut: details.result === "timeout" };
+    }
+  }
+  return { stdout: "", stderr: "Execution timed out", timedOut: true };
 }
 
 export async function POST(req: Request) {
@@ -57,7 +92,7 @@ export async function POST(req: Request) {
 
     const programmingDetails = submission.assignment.programmingDetails;
     const testCases  = programmingDetails?.testCases ?? [];
-    const pistonLang = LANG_MAP[language] ?? LANG_MAP.PYTHON;
+    const paizaLang  = LANG_MAP[language] ?? LANG_MAP.PYTHON;
 
     // Upsert the CodeSubmission record so both its code and TestResults stay
     // current on every run (a previous version only wrote code on first run).
@@ -67,60 +102,59 @@ export async function POST(req: Request) {
       create: { submissionId, code, language },
     });
 
-    const results = await Promise.all(
-      testCases.map(async (tc) => {
-        if (tc.kind === "FUNCTION" && !FUNCTION_TESTABLE_LANGUAGES.has(language)) {
-          return {
-            testCaseId: tc.id, title: tc.title, passed: false, actual: "", expected: tc.expectedOutput,
-            points: 0, isHidden: tc.isHidden,
-            error: `Function-based test cases only run for Python or JavaScript, not ${language}.`,
-          };
-        }
+    // No test cases (manual/rubric-graded exercise) — still run the code once
+    // so the student can see stdout/stderr, just without a pass/fail verdict.
+    if (testCases.length === 0) {
+      const run = await runOnPaiza(paizaLang, code, "");
+      return ok({
+        results: [{
+          testCaseId: "no-test-cases", title: "Program output", passed: !run.stderr,
+          actual: run.stdout.trim(), expected: "", points: 0, isHidden: false,
+          error: run.stderr || (run.timedOut ? "Execution timed out" : null) || null,
+        }],
+        totalPoints: 0, earnedPoints: 0,
+      });
+    }
 
-        const fileContent = tc.kind === "FUNCTION"
-          ? code + buildFunctionHarness(language, programmingDetails!.functionName ?? "solve", tc.input)
-          : code;
+    const results: {
+      testCaseId: string; title: string | null; passed: boolean; actual: string;
+      expected: string; points: number; isHidden: boolean; error: string | null;
+    }[] = [];
 
-        const res = await fetch(`${PISTON_URL}/execute`, {
-          method:  "POST",
-          headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({
-            language: pistonLang.language,
-            version:  pistonLang.version,
-            files:    [{ content: fileContent }],
-            stdin:    tc.kind === "CONSOLE" ? tc.input : "",
-          }),
+    for (const tc of testCases) {
+      if (tc.kind === "FUNCTION" && !FUNCTION_TESTABLE_LANGUAGES.has(language)) {
+        results.push({
+          testCaseId: tc.id, title: tc.title, passed: false, actual: "", expected: tc.expectedOutput,
+          points: 0, isHidden: tc.isHidden,
+          error: `Function-based test cases only run for Python or JavaScript, not ${language}.`,
         });
-        const json = await res.json() as { run?: { stdout?: string; stderr?: string; time?: number } };
-        const stdout = (json.run?.stdout ?? "").trim();
-        // Function harness prints exactly one line, last, regardless of whatever
-        // the student's own code printed before it.
-        const actual = tc.kind === "FUNCTION" ? (stdout.split("\n").pop() ?? "").trim() : stdout;
-        const expected = tc.expectedOutput.trim();
-        const passed = tc.kind === "FUNCTION" ? jsonEquivalent(actual, expected) : actual === expected;
-        const stderr = json.run?.stderr?.slice(0, 500) ?? null;
+        continue;
+      }
 
-        await prisma.testResult.upsert({
-          where:  { testCaseId_codeSubmissionId: { testCaseId: tc.id, codeSubmissionId: codeSubmission.id } },
-          update: {
-            passed, actualOutput: actual, expectedOutput: expected,
-            executionTime: json.run?.time ?? null,
-            error:         stderr,
-            pointsAwarded: passed ? tc.points : 0,
-          },
-          create: {
-            passed, actualOutput: actual, expectedOutput: expected,
-            executionTime:    json.run?.time ?? null,
-            error:            stderr,
-            pointsAwarded:    passed ? tc.points : 0,
-            testCaseId:       tc.id,
-            codeSubmissionId: codeSubmission.id,
-          },
-        }).catch(() => null);
+      const sourceCode = tc.kind === "FUNCTION"
+        ? code + buildFunctionHarness(language, programmingDetails!.functionName ?? "solve", tc.input)
+        : code;
 
-        return { testCaseId: tc.id, title: tc.title, passed, actual, expected, points: passed ? tc.points : 0, isHidden: tc.isHidden, error: stderr };
-      })
-    );
+      const run = await runOnPaiza(paizaLang, sourceCode, tc.kind === "CONSOLE" ? tc.input : "");
+      const stdout = run.stdout.trim();
+      // Function harness prints exactly one line, last, regardless of whatever
+      // the student's own code printed before it.
+      const actual = tc.kind === "FUNCTION" ? (stdout.split("\n").pop() ?? "").trim() : stdout;
+      const expected = tc.expectedOutput.trim();
+      const passed = !run.stderr && (tc.kind === "FUNCTION" ? jsonEquivalent(actual, expected) : actual === expected);
+      const stderr = run.stderr.slice(0, 500) || null;
+
+      await prisma.testResult.upsert({
+        where:  { testCaseId_codeSubmissionId: { testCaseId: tc.id, codeSubmissionId: codeSubmission.id } },
+        update: { passed, actualOutput: actual, expectedOutput: expected, executionTime: null, error: stderr, pointsAwarded: passed ? tc.points : 0 },
+        create: {
+          passed, actualOutput: actual, expectedOutput: expected, executionTime: null, error: stderr,
+          pointsAwarded: passed ? tc.points : 0, testCaseId: tc.id, codeSubmissionId: codeSubmission.id,
+        },
+      }).catch(() => null);
+
+      results.push({ testCaseId: tc.id, title: tc.title, passed, actual, expected, points: passed ? tc.points : 0, isHidden: tc.isHidden, error: stderr });
+    }
 
     const totalPoints  = testCases.reduce((s, t) => s + t.points, 0);
     const earnedPoints = results.filter((r) => r.passed).reduce((s, r) => s + r.points, 0);

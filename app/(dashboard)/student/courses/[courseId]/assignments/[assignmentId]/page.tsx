@@ -35,7 +35,6 @@ export default async function StudentAssignmentDetailPage({
       shortAnswerDetails:  true,
       fileUploadDetails:   true,
       projectDetails:      { select: { githubRequired: true, allowedFileTypes: true, maxFileSizeMB: true } },
-      programmingDetails:  { select: { starterCode: true } },
       quizDetails:        {
         include: {
           questions: {
@@ -182,7 +181,6 @@ export default async function StudentAssignmentDetailPage({
             type:        assignment.type,
             totalMarks:  assignment.totalMarks,
             quizDetails: assignment.quizDetails as any,
-            starterCode: assignment.programmingDetails?.starterCode ?? null,
             projectDetails: assignment.projectDetails,
           }}
           existing={existing}

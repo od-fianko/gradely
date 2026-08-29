@@ -13,10 +13,19 @@ export async function PATCH(req: Request) {
     const name = typeof body.name === "string" ? body.name.trim() : "";
     if (name.length < 2) return badRequest("Name must be at least 2 characters");
 
+    const hasLevel   = body.level !== undefined;
+    const hasProgram = body.program !== undefined;
+    if (hasLevel && body.level !== null && (!Number.isInteger(body.level) || body.level < 100 || body.level > 900))
+      return badRequest("Level must be between 100 and 900");
+
     const user = await prisma.user.update({
       where:  { id: session.user.id },
-      data:   { name },
-      select: { id: true, name: true, email: true },
+      data:   {
+        name,
+        ...(hasLevel   && { level: body.level }),
+        ...(hasProgram && { program: typeof body.program === "string" ? body.program.trim() || null : null }),
+      },
+      select: { id: true, name: true, email: true, level: true, program: true },
     });
     return ok(user, "Profile updated");
   } catch (e) { return handleApiError(e); }

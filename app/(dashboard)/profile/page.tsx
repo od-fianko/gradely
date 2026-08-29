@@ -1,4 +1,5 @@
 import { requireAuth } from "@/lib/auth/session";
+import { prisma } from "@/lib/db/prisma";
 import type { Metadata } from "next";
 import { ProfileSettings } from "@/features/profile/components/profile-settings";
 
@@ -6,6 +7,14 @@ export const metadata: Metadata = { title: "Profile & Settings — Gradely" };
 
 export default async function ProfilePage() {
   const session = await requireAuth();
+
+  const user = await prisma.user.findUnique({
+    where:  { id: session.user.id },
+    select: {
+      name: true, email: true, role: true, level: true, program: true, createdAt: true,
+      university: { select: { name: true } },
+    },
+  });
 
   return (
     <div className="space-y-6 animate-fade-in max-w-2xl">
@@ -16,9 +25,13 @@ export default async function ProfilePage() {
 
       <ProfileSettings
         user={{
-          name:  session.user.name  ?? "User",
-          email: session.user.email ?? "",
-          role:  session.user.role  ?? "STUDENT",
+          name:        user?.name  ?? session.user.name  ?? "User",
+          email:       user?.email ?? session.user.email ?? "",
+          role:        user?.role  ?? session.user.role  ?? "STUDENT",
+          level:       user?.level ?? null,
+          program:     user?.program ?? null,
+          university:  user?.university?.name ?? null,
+          memberSince: user?.createdAt ?? null,
         }}
       />
     </div>
