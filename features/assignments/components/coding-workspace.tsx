@@ -184,11 +184,17 @@ export function CodingWorkspace({ assignment: a, submissionId, initialCode, dead
   };
 
   // ── AI Tutor chat ────────────────────────────────────────────────────────────
+  const [tutorOpen, setTutorOpen] = useState(false);
   const [chat, setChat] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
+
+  const openTutor = () => {
+    setTutorOpen(true);
+    setTimeout(() => chatInputRef.current?.focus(), 50);
+  };
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chat, chatLoading]);
 
@@ -392,7 +398,7 @@ export function CodingWorkspace({ assignment: a, submissionId, initialCode, dead
 
           <div className="h-12 shrink-0 flex items-center justify-between px-4 border-t border-black/30">
             <div className="flex items-center gap-2">
-              <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => chatInputRef.current?.focus()}>
+              <Button variant="secondary" size="sm" className="gap-1.5" onClick={openTutor}>
                 <Sparkles className="h-3.5 w-3.5" /> Ask AI Tutor
               </Button>
               <Button size="sm" className="gap-1.5" onClick={runCode} disabled={running}>
@@ -404,12 +410,29 @@ export function CodingWorkspace({ assignment: a, submissionId, initialCode, dead
           </div>
         </section>
 
-        {/* AI Tutor */}
+        {/* AI Tutor — collapsed to a slim rail by default, like Edge's Copilot */}
+        {!tutorOpen && (
+          <button
+            onClick={openTutor}
+            title="Ask AI Tutor"
+            className="w-12 shrink-0 border-l bg-slate-900 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors flex flex-col items-center gap-2 pt-4"
+          >
+            <div className="relative">
+              <Sparkles className="h-5 w-5 text-primary" />
+              {chat.length > 0 && <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-primary" />}
+            </div>
+            <span className="text-[10px] font-medium [writing-mode:vertical-rl] rotate-180 tracking-wide">AI TUTOR</span>
+          </button>
+        )}
+        {tutorOpen && (
         <aside className="w-full max-w-sm shrink-0 border-l flex flex-col bg-slate-900 text-slate-200">
           <div className="h-12 shrink-0 flex items-center gap-2 px-4 border-b border-slate-800">
             <Sparkles className="h-4 w-4 text-primary" />
             <span className="font-semibold text-sm">AI Tutor</span>
             <span className="ml-auto text-[10px] font-bold text-primary bg-primary/15 px-1.5 py-0.5 rounded">HINTS ONLY</span>
+            <button onClick={() => setTutorOpen(false)} title="Close" className="text-slate-400 hover:text-white transition-colors">
+              <X className="h-4 w-4" />
+            </button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -468,6 +491,7 @@ export function CodingWorkspace({ assignment: a, submissionId, initialCode, dead
             <p className="text-[10px] text-slate-500 text-center">AI may provide hints, not direct solutions.</p>
           </div>
         </aside>
+        )}
       </div>
     </div>
   );

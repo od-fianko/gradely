@@ -10,6 +10,16 @@ import { prisma } from "@/lib/db/prisma";
 // a bottleneck.
 const PAIZA_API_KEY = process.env.PAIZA_API_KEY ?? "guest";
 
+// Vercel kills serverless functions at their configured duration with no
+// useful response to the client — a bare network failure. paiza.io's runner
+// is async (submit, then poll), so a slow/stuck run plus several test cases
+// run sequentially can easily exceed the platform default of 10s. Raise the
+// ceiling and budget our own polling well under it so a timeout comes back
+// as a normal, readable error instead of a dead connection.
+export const maxDuration = 60;
+const ROUTE_BUDGET_MS = 50_000;
+const PER_RUN_TIMEOUT_MS = 9_000;
+
 const LANG_MAP: Record<string, string> = {
   PYTHON:     "python3",
   JAVASCRIPT: "javascript",
@@ -52,7 +62,7 @@ async function runOnPaiza(language: string, sourceCode: string, stdin: string): 
   const created = await createRes.json() as { id?: string; error?: string };
   if (!created.id) return { stdout: "", stderr: created.error ?? "Failed to submit code for execution", timedOut: false };
 
-  const deadline = Date.now() + 15_000;
+  const deadline = Date.now() + PER_RUN_TIMEOUT_MS;
   while (Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, 700));
     const detailsRes = await fetch(`https://api.paiza.io/runners/get_details?id=${created.id}&api_key=${PAIZA_API_KEY}`);
@@ -121,7 +131,17 @@ export async function POST(req: Request) {
       expected: string; points: number; isHidden: boolean; error: string | null;
     }[] = [];
 
+    const routeDeadline = Date.now() + ROUTE_BUDGET_MS;
+
     for (const tc of testCases) {
+      if (Date.now() > routeDeadline) {
+        results.push({
+          testCaseId: tc.id, title: tc.title, passed: false, actual: "", expected: tc.expectedOutput,
+          points: 0, isHidden: tc.isHidden, error: "Skipped — ran out of time for this run. Try again, or run fewer tests at once.",
+        });
+        continue;
+      }
+
       if (tc.kind === "FUNCTION" && !FUNCTION_TESTABLE_LANGUAGES.has(language)) {
         results.push({
           testCaseId: tc.id, title: tc.title, passed: false, actual: "", expected: tc.expectedOutput,
