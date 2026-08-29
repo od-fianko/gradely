@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Code2, Sparkles, LayoutDashboard, type LucideIcon } from "lucide-react";
 
 interface Feature {
-  icon: LucideIcon;
+  image: string;
   label: string;
   title: string;
   caption: string;
@@ -12,17 +11,17 @@ interface Feature {
 
 const FEATURES: Feature[] = [
   {
-    icon: Code2, label: "CODING WORKSPACE",
+    image: "/auth/shot-code-exam.png", label: "CODING WORKSPACE",
     title: "Students code in the browser",
     caption: "Tests run the moment they submit. The AI tutor gives hints, never the answer.",
   },
   {
-    icon: Sparkles, label: "ASSIGNMENT BUILDER",
+    image: "/auth/shot-question-editor.png", label: "ASSIGNMENT BUILDER",
     title: "Build it yourself, or brief the AI",
     caption: "Write every question by hand, or generate a draft and edit what it gives you.",
   },
   {
-    icon: LayoutDashboard, label: "STUDENT DASHBOARD",
+    image: "/auth/shot-student-dashboard.png", label: "STUDENT DASHBOARD",
     title: "Grades land the moment work is marked",
     caption: "Students see deadlines, results, and feedback in one place.",
   },
@@ -70,18 +69,17 @@ export function AuthShowcase() {
 
       {/* Feature showcase */}
       <div className="relative px-11 pb-9 pt-7">
-        <div className="relative h-[210px]">
+        <div className="relative h-[296px]">
           {FEATURES.map((f, i) => {
             const order = (i - active + FEATURES.length) % FEATURES.length;
             const front = order === 0;
-            const Icon = f.icon;
             return (
               <button
                 key={f.label}
                 onClick={() => setActive(i)}
-                className="absolute w-[420px] rounded-xl border text-left transition-all duration-500"
+                className="absolute w-[420px] overflow-hidden rounded-xl border text-left transition-all duration-500"
                 style={{
-                  top: order * 14, left: order * 20,
+                  top: order * 18, left: order * 26,
                   borderColor: `rgba(255,255,255,${front ? 0.16 : 0.08})`,
                   background: "#0f1218",
                   boxShadow: front ? "0 26px 60px -18px rgba(0,0,0,.85)" : "0 14px 34px -14px rgba(0,0,0,.7)",
@@ -89,6 +87,7 @@ export function AuthShowcase() {
                   opacity: front ? 1 : order === 1 ? 0.5 : 0.28,
                   zIndex: 10 - order,
                   cursor: front ? "default" : "pointer",
+                  filter: front ? "none" : "saturate(.75)",
                 }}
               >
                 <div className="flex items-center gap-1.5 border-b border-white/[.07] bg-[#171a21] px-3 py-2">
@@ -97,9 +96,10 @@ export function AuthShowcase() {
                   <span className="h-2 w-2 rounded-full bg-zinc-600" />
                   <span className="ml-2 font-mono text-[10px] tracking-wide text-zinc-500">{f.label}</span>
                 </div>
-                <div className="flex h-[150px] items-center justify-center bg-gradient-to-br from-primary/20 via-[#151824] to-[#0f1218]">
-                  <Icon className="h-11 w-11 text-primary/70" strokeWidth={1.5} />
-                </div>
+                <div
+                  className="h-[246px] bg-cover bg-top bg-no-repeat"
+                  style={{ backgroundImage: `url("${f.image}")` }}
+                />
               </button>
             );
           })}

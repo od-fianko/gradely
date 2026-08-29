@@ -55,6 +55,20 @@
     @apply bg-background text-foreground;
     font-family: var(--font-sans), "Segoe UI", ui-sans-serif, system-ui, -apple-system, sans-serif;
     font-feature-settings: "cv02", "cv03";
+    cursor: default;
+  }
+  /* Nothing in the codebase set cursor styling, so the browser defaulted to
+     a text-select I-beam over ordinary text everywhere, and an inconsistent
+     arrow/pointer over buttons depending on browser. Restore normal web
+     semantics: only genuinely interactive elements get a pointer. */
+  button:not(:disabled), a[href], [role="button"], summary, select, label[for] {
+    cursor: pointer;
+  }
+  button:disabled, [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+  input, textarea {
+    cursor: text;
   }
 }
 
