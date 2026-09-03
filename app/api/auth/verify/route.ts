@@ -24,8 +24,6 @@ export async function POST(req: Request) {
       });
     }
 
-    // Accounts created via step 1 (email only) still need name/password/level
-    // before they can sign in — the client uses this to decide where to go next.
-    return ok({ needsProfile: !user.password }, "Email verified successfully");
+    return ok(null, "Email verified successfully");
   } catch (e) { return handleApiError(e); }
 }
