@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AssignmentRow } from "@/features/assignments/components/assignment-row";
 import { AnnouncementsSection } from "@/features/courses/components/announcements-section";
+import { DeleteCourseButton } from "@/features/courses/components/delete-course-button";
 
 export const metadata: Metadata = { title: "Course — Gradely" };
 
@@ -66,11 +67,19 @@ export default async function LecturerCourseDetailPage({
           )}
           <p className="text-xs text-muted-foreground mt-1">{course.semester}</p>
         </div>
-        <Link href={`/lecturer/courses/${courseId}/assignments/new`}>
-          <Button className="gap-2">
-            <Plus className="h-4 w-4" /> New Assignment
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2 shrink-0">
+          <DeleteCourseButton
+            courseId={courseId}
+            courseCode={course.code}
+            studentCount={course._count.enrollments}
+            assignmentCount={course._count.assignments}
+          />
+          <Link href={`/lecturer/courses/${courseId}/assignments/new`}>
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" /> New Assignment
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Stats row */}
