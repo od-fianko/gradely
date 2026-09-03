@@ -3,6 +3,7 @@ import { ok, unauthorized, badRequest } from "@/lib/api/response";
 import { handleApiError } from "@/lib/errors/http-error";
 import { prisma } from "@/lib/db/prisma";
 import bcrypt from "bcryptjs";
+import { LEVELS } from "@/features/auth/schemas/auth.schema";
 
 export async function PATCH(req: Request) {
   try {
@@ -15,8 +16,8 @@ export async function PATCH(req: Request) {
 
     const hasLevel   = body.level !== undefined;
     const hasProgram = body.program !== undefined;
-    if (hasLevel && body.level !== null && (!Number.isInteger(body.level) || body.level < 100 || body.level > 900))
-      return badRequest("Level must be between 100 and 900");
+    if (hasLevel && body.level !== null && !(LEVELS as readonly number[]).includes(body.level))
+      return badRequest("Choose a valid level");
 
     const user = await prisma.user.update({
       where:  { id: session.user.id },

@@ -170,6 +170,7 @@ model Course {
   description String?  @db.Text
   semester    String   // e.g. "2024/2025 Sem 1"
   level       Int
+  program     String?  // e.g. "Computer Science" — null means visible to every program at this level
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

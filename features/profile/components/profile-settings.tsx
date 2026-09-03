@@ -7,7 +7,11 @@ import { Loader2, Sun, Moon, User, KeyRound, Palette, CheckCircle2, GraduationCa
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { format } from "date-fns";
+import { LEVELS } from "@/features/auth/schemas/auth.schema";
 
 interface Props {
   user: {
@@ -37,7 +41,7 @@ export function ProfileSettings({ user }: Props) {
 
   const dirty = name.trim() !== user.name
     || (isStudent && level !== (user.level != null ? String(user.level) : ""))
-    || (isStudent && program.trim() !== (user.program ?? ""));
+    || program.trim() !== (user.program ?? "");
 
   const saveProfile = async () => {
     setProfileSaving(true); setProfileMsg(null);
@@ -46,7 +50,8 @@ export function ProfileSettings({ user }: Props) {
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({
         name,
-        ...(isStudent && { level: level ? Number(level) : null, program: program.trim() || null }),
+        program: program.trim() || null,
+        ...(isStudent && { level: level ? Number(level) : null }),
       }),
     });
     const json = await res.json();
@@ -88,20 +93,26 @@ export function ProfileSettings({ user }: Props) {
             <Input value={name} onChange={(e) => setName(e.target.value)} className="mt-1.5 max-w-sm" />
           </div>
 
-          {isStudent && (
-            <div className="grid grid-cols-2 gap-4 max-w-sm">
+          <div className={isStudent ? "grid grid-cols-2 gap-4 max-w-sm" : "max-w-sm"}>
+            {isStudent && (
               <div>
                 <label className="text-sm font-medium">Level</label>
-                <Input type="number" min={100} max={900} placeholder="e.g. 300" value={level}
-                  onChange={(e) => setLevel(e.target.value)} className="mt-1.5" />
+                <Select value={level} onValueChange={setLevel}>
+                  <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select level" /></SelectTrigger>
+                  <SelectContent>
+                    {LEVELS.map((l) => <SelectItem key={l} value={String(l)}>Level {l}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
-              <div>
-                <label className="text-sm font-medium">Program <span className="text-muted-foreground font-normal">(optional)</span></label>
-                <Input placeholder="Computer Science" value={program}
-                  onChange={(e) => setProgram(e.target.value)} className="mt-1.5" />
-              </div>
+            )}
+            <div>
+              <label className="text-sm font-medium">
+                {isStudent ? "Program" : "Department"} <span className="text-muted-foreground font-normal">(optional)</span>
+              </label>
+              <Input placeholder="Computer Science" value={program}
+                onChange={(e) => setProgram(e.target.value)} className="mt-1.5" />
             </div>
-          )}
+          </div>
 
           <div className="flex items-center gap-2">
             <Button onClick={saveProfile} disabled={profileSaving || !dirty} className="gap-1.5">

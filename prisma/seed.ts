@@ -33,7 +33,7 @@ async function main() {
   // Lecturer
   const lecturer = await prisma.user.upsert({
     where: { email: "dr.mensah@gradely.edu" },
-    update: { isVerified: true, universityId: university.id },
+    update: { isVerified: true, universityId: university.id, program: "Computer Science" },
     create: {
       email: "dr.mensah@gradely.edu",
       name: "Dr. Kwame Mensah",
@@ -41,6 +41,7 @@ async function main() {
       role: Role.LECTURER,
       isVerified: true,
       universityId: university.id,
+      program: "Computer Science",
     },
   });
 
@@ -53,8 +54,8 @@ async function main() {
     ].map((s) =>
       prisma.user.upsert({
         where: { email: s.email },
-        update: { isVerified: true, universityId: university.id, level: 300 },
-        create: { ...s, password: hashedPassword, role: Role.STUDENT, isVerified: true, universityId: university.id, level: 300 },
+        update: { isVerified: true, universityId: university.id, level: 300, program: "Computer Science" },
+        create: { ...s, password: hashedPassword, role: Role.STUDENT, isVerified: true, universityId: university.id, level: 300, program: "Computer Science" },
       })
     )
   );
@@ -62,13 +63,14 @@ async function main() {
   // Course
   const course = await prisma.course.upsert({
     where: { code: "CS301" },
-    update: {},
+    update: { program: "Computer Science" },
     create: {
       code: "CS301",
       title: "Data Structures and Algorithms",
       description: "Fundamental data structures and algorithmic techniques.",
       semester: "2024/2025 Sem 1",
       level: 300,
+      program: "Computer Science",
       lecturerId: lecturer.id,
       universityId: university.id,
     },

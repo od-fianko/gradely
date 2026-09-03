@@ -23,16 +23,24 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { createCourseSchema, type CreateCourseSchema } from "@/features/courses/schemas/course.schema";
+import { LEVELS } from "@/features/auth/schemas/auth.schema";
 
-export function CreateCourseDialog() {
+interface Props {
+  defaultProgram?: string;
+}
+
+export function CreateCourseDialog({ defaultProgram = "" }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const form = useForm<CreateCourseSchema>({
     resolver: zodResolver(createCourseSchema),
-    defaultValues: { code: "", title: "", description: "", semester: "", level: 100 },
+    defaultValues: { code: "", title: "", description: "", semester: "", level: 100, program: defaultProgram },
   });
 
   const onSubmit = async (data: CreateCourseSchema) => {
@@ -84,13 +92,27 @@ export function CreateCourseDialog() {
               )} />
             </div>
 
-            <FormField control={form.control} name="level" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Level</FormLabel>
-                <FormControl><Input type="number" min={100} max={900} placeholder="100" {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField control={form.control} name="level" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Level</FormLabel>
+                  <Select value={String(field.value ?? "")} onValueChange={(v) => field.onChange(Number(v))}>
+                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      {LEVELS.map((l) => <SelectItem key={l} value={String(l)}>Level {l}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="program" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Program <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
+                  <FormControl><Input placeholder="Visible to all if blank" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+            </div>
 
             <FormField control={form.control} name="title" render={({ field }) => (
               <FormItem>

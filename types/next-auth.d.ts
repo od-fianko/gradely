@@ -9,6 +9,7 @@ declare module "next-auth" {
       isVerified: boolean;
       universityId?: string | null;
       level?: number | null;
+      program?: string | null;
     } & DefaultSession["user"];
   }
 
@@ -17,6 +18,7 @@ declare module "next-auth" {
     isVerified: boolean;
     universityId?: string | null;
     level?: number | null;
+    program?: string | null;
   }
 }
 
@@ -27,5 +29,6 @@ declare module "next-auth/jwt" {
     isVerified: boolean;
     universityId?: string | null;
     level?: number | null;
+    program?: string | null;
   }
 }

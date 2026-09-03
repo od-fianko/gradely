@@ -26,7 +26,7 @@ export default async function LecturerCoursesPage() {
             {courses.length} course{courses.length !== 1 ? "s" : ""} — manage content and students
           </p>
         </div>
-        <CreateCourseDialog />
+        <CreateCourseDialog defaultProgram={session.user.program ?? ""} />
       </div>
 
       {courses.length === 0 ? (

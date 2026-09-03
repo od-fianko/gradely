@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     const parsed = completeRegisterSchema.safeParse(body);
     if (!parsed.success) return badRequest(parsed.error.errors[0].message);
 
-    const { email, name, level, program, password } = parsed.data;
+    const { email, role, name, level, program, password } = parsed.data;
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return badRequest("Account not found — start the sign-up process again");
@@ -24,7 +24,11 @@ export async function POST(req: Request) {
     const hashed = await bcrypt.hash(password, 12);
     await prisma.user.update({
       where: { email },
-      data: { name, level, program: program?.trim() || null, password: hashed },
+      data: {
+        name, role, password: hashed,
+        level: role === "STUDENT" ? level : null,
+        program: program?.trim() || null,
+      },
     });
 
     return ok(null, "Account created successfully", 201);

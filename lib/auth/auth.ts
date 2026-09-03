@@ -24,7 +24,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: { email },
           select: {
             id: true, email: true, name: true, password: true, role: true, image: true,
-            isActive: true, isVerified: true, universityId: true, level: true,
+            isActive: true, isVerified: true, universityId: true, level: true, program: true,
           },
         });
 
@@ -35,7 +35,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         return {
           id: user.id, email: user.email, name: user.name, role: user.role, image: user.image,
-          isVerified: user.isVerified, universityId: user.universityId, level: user.level,
+          isVerified: user.isVerified, universityId: user.universityId, level: user.level, program: user.program,
         };
       },
     }),

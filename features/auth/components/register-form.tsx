@@ -8,6 +8,7 @@ import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2, Mail } from "lucide-re
 import {
   startRegisterSchema, type StartRegisterSchema,
   completeRegisterSchema, type CompleteRegisterSchema,
+  LEVELS,
 } from "@/features/auth/schemas/auth.schema";
 import {
   Form,
@@ -107,8 +108,9 @@ export function RegisterForm() {
   // ── Step 3: profile + password ────────────────────────────────────────────────
   const profileForm = useForm<CompleteRegisterSchema>({
     resolver: zodResolver(completeRegisterSchema),
-    defaultValues: { email: "", name: "", level: 100, program: "", password: "", confirmPassword: "" },
+    defaultValues: { email: "", role: "STUDENT", name: "", level: 100, program: "", password: "", confirmPassword: "" },
   });
+  const profileRole = profileForm.watch("role");
 
   // Arriving here from /verify-email after a fresh verification — the email
   // is already confirmed, so skip straight to finishing the profile. The
@@ -211,6 +213,30 @@ export function RegisterForm() {
       {step === "profile" && (
         <Form {...profileForm}>
           <form onSubmit={profileForm.handleSubmit(submitProfile)} className="space-y-4">
+            <FormField control={profileForm.control} name="role" render={({ field }) => (
+              <FormItem>
+                <FormLabel className={labelClass}>I am a</FormLabel>
+                <FormControl>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["STUDENT", "LECTURER"] as const).map((r) => (
+                      <button
+                        key={r} type="button" onClick={() => field.onChange(r)}
+                        disabled={profileForm.formState.isSubmitting}
+                        className={`rounded-[9px] border py-2.5 text-sm font-semibold transition-colors ${
+                          field.value === r
+                            ? "border-primary bg-primary/5 text-primary"
+                            : "border-zinc-300 bg-white text-zinc-500 hover:bg-zinc-50"
+                        }`}
+                      >
+                        {r === "STUDENT" ? "Student" : "Lecturer"}
+                      </button>
+                    ))}
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+
             <FormField control={profileForm.control} name="name" render={({ field }) => (
               <FormItem>
                 <FormLabel className={labelClass}>Full name</FormLabel>
@@ -219,17 +245,26 @@ export function RegisterForm() {
               </FormItem>
             )} />
 
-            <div className="grid grid-cols-2 gap-3">
-              <FormField control={profileForm.control} name="level" render={({ field }) => (
-                <FormItem>
-                  <FormLabel className={labelClass}>Level</FormLabel>
-                  <FormControl><input type="number" min={100} max={900} placeholder="100" disabled={profileForm.formState.isSubmitting} className={inputClass} {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
+            <div className={profileRole === "STUDENT" ? "grid grid-cols-2 gap-3" : ""}>
+              {profileRole === "STUDENT" && (
+                <FormField control={profileForm.control} name="level" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className={labelClass}>Level</FormLabel>
+                    <FormControl>
+                      <select disabled={profileForm.formState.isSubmitting} className={inputClass}
+                        value={field.value ?? ""} onChange={(e) => field.onChange(Number(e.target.value))}>
+                        {LEVELS.map((l) => <option key={l} value={l}>Level {l}</option>)}
+                      </select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              )}
               <FormField control={profileForm.control} name="program" render={({ field }) => (
                 <FormItem>
-                  <FormLabel className={labelClass}>Program <span className="font-normal text-zinc-400">(optional)</span></FormLabel>
+                  <FormLabel className={labelClass}>
+                    {profileRole === "LECTURER" ? "Department" : "Program"} <span className="font-normal text-zinc-400">(optional)</span>
+                  </FormLabel>
                   <FormControl><input placeholder="Computer Science" disabled={profileForm.formState.isSubmitting} className={inputClass} {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>

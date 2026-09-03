@@ -26,12 +26,20 @@ export default async function StudentCoursesPage() {
   const enrolledCourses = enrolled.map((e) => e.course);
   const enrolledIds = new Set(enrolledCourses.map((c) => c.id));
 
+  const studentProgram = session.user.program?.trim();
+
   const allActive = await prisma.course.findMany({
     where: {
       isActive: true,
       id: { notIn: [...enrolledIds] },
       universityId: session.user.universityId ?? undefined,
       level: session.user.level ?? undefined,
+      // A course with no program set is open to everyone at that level.
+      // A student with no program set on their own profile sees everything
+      // too — we only narrow the list once both sides actually specify one.
+      ...(studentProgram && {
+        OR: [{ program: null }, { program: { equals: studentProgram, mode: "insensitive" } }],
+      }),
     },
     include: { lecturer: { select: { name: true, email: true } }, _count: { select: { enrollments: true, assignments: true } } },
     orderBy: { createdAt: "desc" },

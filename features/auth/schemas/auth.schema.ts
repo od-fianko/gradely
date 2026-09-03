@@ -10,12 +10,18 @@ export const startRegisterSchema = z.object({
   email: z.string().email("Enter a valid email address"),
 });
 
-// Step 3 — collected only after the email has been OTP-verified.
+// Undergraduate levels — most programs run 100/200/300/400; a free number
+// field let people submit levels (like 900) that don't exist anywhere.
+export const LEVELS = [100, 200, 300, 400] as const;
+
+// Step 3 — collected only after the email has been OTP-verified. Level only
+// applies to students; lecturers skip it (refined below).
 export const completeRegisterSchema = z
   .object({
     email: z.string().email(),
+    role: z.enum(["STUDENT", "LECTURER"]),
     name: z.string().min(2, "Name must be at least 2 characters"),
-    level: z.coerce.number().int().min(100).max(900),
+    level: z.coerce.number().refine((v) => (LEVELS as readonly number[]).includes(v), "Choose a valid level").optional(),
     program: z.string().max(120).optional(),
     password: z
       .string()
@@ -27,6 +33,10 @@ export const completeRegisterSchema = z
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
+  })
+  .refine((data) => data.role !== "STUDENT" || data.level !== undefined, {
+    message: "Select your level",
+    path: ["level"],
   });
 
 export const verifyCodeSchema = z.object({
